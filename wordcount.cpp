@@ -11,18 +11,21 @@ using std::istream;
 using std::pair;
 using std::vector;
 using std::unordered_map;
-
+using namespace std;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
 
 	if(argc < 2) MPI_Abort(MPI_COMM_WORLD, 007);
 
-	readFile("alice.txt", 0);
 
 	int rank, ranks;
 	MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 	MPI_Comm_size(MPI_COMM_WORLD,&ranks); 
+	cout << "Greetings from "<< rank << "in main" << endl;
+	MPI_Finalize();return 0;
+	readFile(argv[1], rank);
+
 	
 	unordered_map<string,int> bucket;
 

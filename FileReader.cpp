@@ -2,15 +2,19 @@
 #include <string>
 #include <iostream>
 #include <mpi.h>
+#include <sstream>
+#include <map> // Change to unordered
 
 using std::string;
 using std::cout;
 using std::endl;
-using std::istream; 
+using std::stringstream; 
+using std::getline;
+using std::map;
 
 void readFile(char* filename,int rank){
     MPI_File f;
-	cout << "skrr" << endl;
+	cout << "I am rank " << rank << endl;
 	MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 	
 	// MPI_Offset filesize;
@@ -18,10 +22,21 @@ void readFile(char* filename,int rank){
 	
 	// int localsize = filesize/ranks;
 	char *alice = (char*) malloc(100*sizeof(char)); 
-	MPI_File_read(f,alice,100,MPI_CHAR, MPI_STATUS_IGNORE);
-	//alice[99] = '\0';
-	istream i(alice);
+	MPI_File_read_at(f,100*rank,alice,100,MPI_CHAR, MPI_STATUS_IGNORE);
+	alice[99] = '\0';
+	//istream i(alice);
 	
-	while()
+
+	stringstream ss(alice);
+	string word;
+	map<string,int> m;
+	while(getline(ss,word,' ')){
+		if(m.count(word)) m[word] = m[word]+1; // Local reduce here? 
+		else m[word]=1;
+	}
+	for(auto it = m.begin(); it!=m.end(); it++) cout << "<" << it->first << "," << it->second << ">";
+	cout << endl; 
+
+	//while()
 	cout << alice << endl;
 }
