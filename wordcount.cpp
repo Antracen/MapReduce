@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
 	for(auto &p : bucket) {
 		int h = hasher(p.first) % ranks;
 		const char *word = p.first.c_str();
-		int data[] = {p.second,p.first.length()};
+		int data[] = {p.second,p.first.length()}; // First send count and word length
 		MPI_Send(data,2,MPI_INT,h,1337,MPI_COMM_WORLD); //,requestsCount);
 		MPI_Send(word,p.first.length(),MPI_CHAR,h,1337,MPI_COMM_WORLD); //,requestsWord);
 	}
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]){
 			int counts[2];
 			MPI_Recv(counts,2,MPI_INT,i,1337,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 			if(!counts[0]) break; // Sender sent non-positive count, "end of message"
-			char word[counts[1]];
+			char word[counts[1]]; // Here we use the said length of upcoming word
 			MPI_Recv(word,counts[1],MPI_INT,i,1337,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 			if(bucket.count(word)) bucket[word] = bucket[word]+1;
 			else bucket[word] = 1;
