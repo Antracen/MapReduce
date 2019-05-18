@@ -1,9 +1,11 @@
 #include "FileReader.h"
 #include <string>
 #include <iostream>
+#include <algorithm>
 #include <mpi.h>
 #include <sstream>
 #include <unordered_map>
+#include <regex>
 
 using std::string;
 using std::cout;
@@ -11,6 +13,8 @@ using std::endl;
 using std::stringstream; 
 using std::getline;
 using std::unordered_map;
+using std::regex;
+using std::regex_replace;
 
 void readFile(char* filename,int rank, unordered_map<string,int>& m){
     MPI_File f;
@@ -23,18 +27,16 @@ void readFile(char* filename,int rank, unordered_map<string,int>& m){
 	// int localsize = filesize/ranks;
 	char *alice = (char*) malloc(1000*sizeof(char)); 
 	MPI_File_read_at(f,1000*rank,alice,1000,MPI_CHAR, MPI_STATUS_IGNORE);
-	//alice[99] = '\0';
-	//istream i(alice);
-	
+	//alice[999] = '\0';
+	regex r("\\W+");
+	string chapter = regex_replace(alice,r," "); // Replace crap with " "
 
-	stringstream ss(alice);
+	stringstream ss(chapter);
 	string word;
-	//unordered_map<string,int> m;
 	while(getline(ss,word,' ')){
+		transform(word.begin(), word.end(), word.begin(), tolower);
+
 		if(m.count(word)) m[word] = m[word]+1; // Local reduce here? 
 		else m[word]=1;
 	}
-	//for(auto it = m.begin(); it!=m.end(); it++) cout << "<" << it->first << "," << it->second << ">";
-	cout << "done here" << endl; 
-	//return m;
 }
