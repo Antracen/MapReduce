@@ -19,4 +19,4 @@ local: FileReader_local
 	$(CC_local) $(FLAGS) -o wordcount.out FileReader.o wordcount.cpp
 
 run_local: local
-	mpirun -n 3 ./wordcount.out alice.txt
+	mpirun  -n 5 ./wordcount.out alice.txt
