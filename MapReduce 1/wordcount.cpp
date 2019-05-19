@@ -30,7 +30,6 @@ int main(int argc, char *argv[]){
 	readFile(argv[1],rank,ranks,buckets);
 
 	int *amountToSend = new int[ranks]; 
-	for(int i = 0; i < ranks; i++) amountToSend[i] = 0;
 	for(int i = 0; i < ranks; i++){ 
 		int wordsToThisGuy = buckets[i].size(); 
 		MPI_Allreduce(&wordsToThisGuy,&amountToSend[i],1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
@@ -46,14 +45,16 @@ int main(int argc, char *argv[]){
 			const char *word = p.first.c_str();
 			//int data[] = {p.second,p.first.length()}; // First send count and word length
 			char *data = new char[sizeof(int)+strlen(word)];
-			//data[0] = p.second; // The count
-			data[0] = 1;
-			data[1] = 1;
-			data[2] = 1;
-			data[3] = 1;
 
+			data = (char*)&p.second; // The count
+			//data[0] = 1;
+			//data[1] = 1;
+			//data[2] = 1;
+			//data[3] = 1;
+			cout << p.first << ": Count in data: " << data[0]+data[1]+data[2]+data[3] << ". real: " << p.second << endl; 
 			for(size_t j = 0; j < strlen(word); j++) data[4+j] = word[j];
-			MPI_Isend(data,sizeof(int)+strlen(word),MPI_BYTE,i,rand()%1000,MPI_COMM_WORLD,requests);
+			cout << "Whole data: " << data << endl; 
+			MPI_Isend(word,strlen(word),MPI_CHAR,i,rand()%1000,MPI_COMM_WORLD,requests);
 		}
 	}
 	
@@ -66,13 +67,11 @@ int main(int argc, char *argv[]){
 		MPI_Status status; 
 		int sizeOfIncoming; 
 		MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
-		cout << "Probing, src: " << status.MPI_SOURCE << ". tag: " << status.MPI_TAG << endl; 
-		MPI_Get_count(&status, MPI_BYTE, &sizeOfIncoming);
-		cout << "Size of incoming " << sizeOfIncoming << endl; 
+		MPI_Get_count(&status, MPI_CHAR, &sizeOfIncoming);
 		char *message = new char[sizeOfIncoming];
-		MPI_Recv(&message,sizeOfIncoming,MPI_BYTE,status.MPI_SOURCE,status.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-		//int count = message[0];//+message[1]+message[2]+message[3]; 
-		cout << "Message " << message << endl; 
+		MPI_Recv(message,sizeOfIncoming,MPI_CHAR,status.MPI_SOURCE,status.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+		//int count = message[0]+message[1]+message[2]+message[3]; 
+		cout << "Message " << message <<  endl; 
 		//char word[counts[1]]; // Here we use the said length of upcoming word
 		//MPI_Recv(word,counts[1],MPI_CHAR,i,1337,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 		//buckets[rank][word] = (buckets[rank].count(word)) ? buckets[rank][word]+1 :  1;

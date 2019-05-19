@@ -13,6 +13,7 @@
 #include <string>
 #include <regex>
 #include <algorithm>
+using namespace std;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
@@ -102,6 +103,55 @@ int main(int argc, char *argv[]){
 				std::cout << "Rank " << rank << " Bucket " << i << " : " << pair.first << " count:" << pair.second << std::endl;
 			}
 		}
+
+
+		int *amountToSend = new int[ranks]; 
+        	for(int i = 0; i < ranks; i++){ 
+                	int wordsToThisGuy = buckets[i].size(); 
+                	MPI_Allreduce(&wordsToThisGuy,&amountToSend[i],1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
+        	}
+       	 	for(int i = 0; i < ranks; i++) cout << "Bucket (total): " << amountToSend[i] << "," <<  endl;
+
+		struct Message {
+			int count;
+			char* word;
+		};
+
+		// Not using this
+		MPI_Datatype msg;
+		MPI_Type_struct(2,new int[2]{1,1},new MPI_Aint[2]{0,1*sizeof(int)},new MPI_Datatype[2]{MPI_INT,MPI_CHAR},&msg);
+		MPI_Type_commit(&msg);
+
+       		// Send the words to their rightful owner
+        	MPI_Request *requests = new MPI_Request[ranks];
+        	MPI_Request *requestsCount = new MPI_Request[ranks];
+        	for(size_t i = 0; i < buckets.size(); i++) {
+			int count = 0;
+			for(auto &p : buckets[i]){
+                        	const char *word = p.first.c_str();
+				MPI_Isend(&p.second,1,MPI_INT,i,count,MPI_COMM_WORLD,requestsCount); // Really need unique tag here?
+                        	MPI_Isend(word,strlen(word),MPI_CHAR,i,count,MPI_COMM_WORLD,requests);
+                		count++;
+			}
+        	}
+        
+       		map<string,int> bucket; 
+        	// NOTE: We will also receive words from our selves 
+
+        	// Receive my words that the other guys had
+        	int amount = amountToSend[rank]; // How much I should receive
+        	while(amount > 0){
+                	MPI_Status s1,s2;
+                	int sizeOfIncoming, count;
+			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
+                	MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends
+                	MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
+                	char *message = new char[sizeOfIncoming];
+                	MPI_Recv(message,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+                	cout << "I am rank " << rank << " and got a message: (" << message <<  "," << count << ")" << endl; 
+                	amount--; 
+        }
+
 
 	MPI_Finalize();
 }

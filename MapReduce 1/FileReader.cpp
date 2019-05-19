@@ -8,9 +8,9 @@ void readFile(char* filename,int rank, int ranks, vector<unordered_map<string,in
 	// MPI_File_get_size(f,&filesize);
 	
 	// int localsize = filesize/ranks;
-	char *alice = (char*) malloc(100*sizeof(char)); 
-	MPI_File_read_at(f,100*rank,alice,100,MPI_CHAR, MPI_STATUS_IGNORE);
-	alice[99] = '\0';
+	char *alice = (char*) malloc(1000*sizeof(char)); 
+	MPI_File_read_at(f,1000*rank,alice,1000,MPI_CHAR, MPI_STATUS_IGNORE);
+	alice[999] = '\0';
 	regex r("\\W+");
 	string chapter = regex_replace(alice,r," "); // Replace crap with " "
 
