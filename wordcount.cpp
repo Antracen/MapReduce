@@ -140,18 +140,21 @@ int main(int argc, char *argv[]){
 
         	// Receive my words that the other guys had
         	int amount = amountToSend[rank]; // How much I should receive
+               	int sizeOfIncoming, count;
         	while(amount > 0){
                 	MPI_Status s1,s2;
-                	int sizeOfIncoming, count;
 			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
                 	MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends
                 	MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
                 	char *message = new char[sizeOfIncoming];
                 	MPI_Recv(message,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
                 	cout << "I am rank " << rank << " and got a message: (" << message <<  "," << count << ")" << endl; 
-                	amount--; 
+     			bucket[message] = (bucket.count(message)) ? bucket[message]+count : count;
+	           	amount--; 
         }
-
+	for(auto &pair : bucket) {
+		std::cout << "Rank " << rank <<" : (" << pair.first << "," << pair.second <<")" << endl;
+        }
 
 	MPI_Finalize();
 }
