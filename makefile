@@ -1,6 +1,6 @@
 CC_local = mpiCC
 
-FLAGS = -std=c++11 -g -Wall -pedantic
+FLAGS = -std=c++11 -g -Wall -pedantic -fopenmp
 
 clean:
 	rm -f *.o *.out

@@ -49,7 +49,7 @@ int main(int argc, char *argv[]){
 		int chunks_per_process = file_size / CHUNK_SIZE / ranks;
 		int extra_chunk = file_size % CHUNK_SIZE;
 
-	/* Handle all chunks */
+	/* Map the chunks into KV pairs */
 		std::vector<std::map<std::string, uint64_t>> buckets(ranks);
 		char *buf = (char*) malloc(CHUNK_SIZE + 1);
 		char *word = (char*) malloc(CHUNK_SIZE + 1);
@@ -98,63 +98,81 @@ int main(int argc, char *argv[]){
 			}
 		}
 
-		for(int i = 0; i < ranks; i++) {
-			for(auto &pair : buckets[i]) {
-				std::cout << "Rank " << rank << " Bucket " << i << " : " << pair.first << " count:" << pair.second << std::endl;
+	/* Send the data to each owning process */
+		// Calculate (1) how much to send to everyone and (2) how much I will receive
+		int *receive_amount = new int[ranks]; // How much will I receive in total
+		for(int i = 0; i < ranks; i++){ 
+			int num_words = buckets[i].size();
+			MPI_Allreduce(&num_words, &receive_amount[i], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		}
+
+		// Send the words to their rightful owner
+		MPI_Request *requests = new MPI_Request[ranks];
+		MPI_Request *requestsCount = new MPI_Request[ranks];
+		// # pragma ompa 
+		for(size_t i = 0; i < buckets.size(); i++) {
+			int count = 0;
+			for(auto &p : buckets[i]) {
+				const char *word = p.first.c_str();
+				MPI_Isend(&p.second,1,MPI_INT,i,count,MPI_COMM_WORLD,&requestsCount[i]); // Really need unique tag here?
+				MPI_Isend(word,strlen(word),MPI_CHAR,i,count,MPI_COMM_WORLD,&requests[i]);
+				count++;
+			}
+		}
+        
+		map<string,int> bucket; // All my worlds
+		// Receive my words that the other guys had
+		int amount = receive_amount[rank]; // How much I should receive
+		int sizeOfIncoming, count;
+		while(amount > 0) {
+			MPI_Status s1,s2;
+			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
+			MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
+			MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
+			char *word = new char[sizeOfIncoming];
+			MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+			bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
+			amount--; 
+        }
+
+		// Make sure you send everything
+		MPI_Waitall(ranks,requestsCount,MPI_STATUS_IGNORE);
+		MPI_Waitall(ranks,requests,MPI_STATUS_IGNORE);
+
+	/* Other guys send their parts while master gets everything and prints */
+		int bucket_size = bucket.size();
+		MPI_Reduce(&bucket_size, &amount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+		amount = amount - bucket_size;
+		if(rank != 0) {
+			int count = 0; 
+			for(auto &p : bucket) {
+				const char *word = p.first.c_str();
+				MPI_Isend(&p.second,1,MPI_INT,0,count,MPI_COMM_WORLD,requestsCount); // New request-arrays? 
+				MPI_Isend(word,strlen(word),MPI_CHAR,0,count,MPI_COMM_WORLD,requests);
+				count++;
+			}
+			
+		} else {		
+			cout << "The guys says master should recieve " << amount << endl; 
+			// Ta emot skit 
+			while(amount > 0) {
+				MPI_Status s1,s2;
+				MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
+				MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
+				MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
+				char *word = new char[sizeOfIncoming];
+				MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+				//cout << "I am master and got a message: (" << word <<  "," << count << ")" << endl; 
+				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
+				amount--; 
+				//cout << amount << endl;
+			}
+
+			for(auto &p : bucket) {
+				cout << "(" << p.first << "," << p.second << ")" << endl;
 			}
 		}
 
-
-		int *amountToSend = new int[ranks]; 
-        	for(int i = 0; i < ranks; i++){ 
-                	int wordsToThisGuy = buckets[i].size(); 
-                	MPI_Allreduce(&wordsToThisGuy,&amountToSend[i],1,MPI_INT,MPI_SUM,MPI_COMM_WORLD);
-        	}
-       	 	for(int i = 0; i < ranks; i++) cout << "Bucket (total): " << amountToSend[i] << "," <<  endl;
-
-		struct Message {
-			int count;
-			char* word;
-		};
-
-		// Not using this
-		MPI_Datatype msg;
-		MPI_Type_struct(2,new int[2]{1,1},new MPI_Aint[2]{0,1*sizeof(int)},new MPI_Datatype[2]{MPI_INT,MPI_CHAR},&msg);
-		MPI_Type_commit(&msg);
-
-       		// Send the words to their rightful owner
-        	MPI_Request *requests = new MPI_Request[ranks];
-        	MPI_Request *requestsCount = new MPI_Request[ranks];
-        	for(size_t i = 0; i < buckets.size(); i++) {
-			int count = 0;
-			for(auto &p : buckets[i]){
-                        	const char *word = p.first.c_str();
-				MPI_Isend(&p.second,1,MPI_INT,i,count,MPI_COMM_WORLD,requestsCount); // Really need unique tag here?
-                        	MPI_Isend(word,strlen(word),MPI_CHAR,i,count,MPI_COMM_WORLD,requests);
-                		count++;
-			}
-        	}
-        
-       		map<string,int> bucket; 
-        	// NOTE: We will also receive words from our selves 
-
-        	// Receive my words that the other guys had
-        	int amount = amountToSend[rank]; // How much I should receive
-               	int sizeOfIncoming, count;
-        	while(amount > 0){
-                	MPI_Status s1,s2;
-			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
-                	MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends
-                	MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-                	char *message = new char[sizeOfIncoming];
-                	MPI_Recv(message,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                	cout << "I am rank " << rank << " and got a message: (" << message <<  "," << count << ")" << endl; 
-     			bucket[message] = (bucket.count(message)) ? bucket[message]+count : count;
-	           	amount--; 
-        }
-	for(auto &pair : bucket) {
-		std::cout << "Rank " << rank <<" : (" << pair.first << "," << pair.second <<")" << endl;
-        }
 
 	MPI_Finalize();
 }
