@@ -1,3 +1,5 @@
+// TODO:
+	// Free memory when not needed anymore
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 #define CHUNK_SIZE 64000000
@@ -54,6 +56,7 @@ int main(int argc, char *argv[]){
 		std::vector<std::map<std::string, uint64_t>> buckets(ranks);
 		char *buf = (char*) malloc(CHUNK_SIZE + 1);
 		char *word = (char*) malloc(CHUNK_SIZE + 1);
+		//%#OMP?
 		for(int i = 0; i < chunks_per_process; i++) {
 			MPI_File_read_at(f, rank*CHUNK_SIZE*chunks_per_process + i*CHUNK_SIZE, buf, CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
 			buf[CHUNK_SIZE] = '\0';
@@ -110,8 +113,7 @@ int main(int argc, char *argv[]){
 		// Send the words to their rightful owner
 		MPI_Request *requests = new MPI_Request[ranks];
 		MPI_Request *requestsCount = new MPI_Request[ranks];
-		// # pragma ompa 
-		for(size_t i = 0; i < ranks; i++) {
+		for(int i = 0; i < ranks; i++) {
 			int count = 0;
 			for(auto &p : buckets[i]) {
 				const char *word = p.first.c_str();
@@ -165,10 +167,9 @@ int main(int argc, char *argv[]){
 			for(auto &p : bucket) {
 				cout << "(" << p.first << "," << p.second << ")" << endl;
 			}
+			double time = MPI_Wtime() - start_time;
+			cout << "Time: " << time << endl;
 		}
 
-	double time = MPI_Wtime() - start_time;
-	cout << "Time: " << time << endl;
-	
 	MPI_Finalize();
 }
