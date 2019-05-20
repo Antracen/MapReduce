@@ -25,6 +25,8 @@ using std::map;
 using std::string;
 using std::cout;
 using std::endl;
+using std::vector;
+using std::hash;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
@@ -37,7 +39,7 @@ int main(int argc, char *argv[]){
 
 	/* Parse command line arguments */
 		if(argc < 2) {
-			std::cout << "Too few arguments. Aborting." << std::endl;
+			cout << "Too few arguments. Aborting." << endl;
 			MPI_Abort(MPI_COMM_WORLD, TOO_FEW_ARGUMENTS);
 		}
 		else filename = argv[1];
@@ -52,7 +54,7 @@ int main(int argc, char *argv[]){
 		res = MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 
 		if(res) {
-			std::cout << "File does not exist. Aborting." << std::endl;		
+			cout << "File does not exist. Aborting." << endl;		
 			MPI_Abort(MPI_COMM_WORLD, NONEXISTENT_FILE);
 		}
 
@@ -60,11 +62,10 @@ int main(int argc, char *argv[]){
 		MPI_Offset file_size;
 		MPI_File_get_size(f, &file_size);
 		int total_chunks = file_size / CHUNK_SIZE;
-		int chunks_per_process = total_chunks / ranks;
-		int left_chunks = total_chunks % ranks;
-		if(left_chunks != 0) {
-			if(rank + 1 <= left_chunks) chunks_per_process += 1;
-		}		
+		vector<int> chunks_to_read;
+		for(int i = rank; i < total_chunks; i++) {
+			if(i % ranks == rank) chunks_to_read.push_back(i);
+		}
 		int extra_chunk = file_size % CHUNK_SIZE;
 
 		if(rank == 0) {
@@ -72,16 +73,16 @@ int main(int argc, char *argv[]){
 			cout << "Total chunks: " << total_chunks << endl;
 		}
 
-		if(rank != 0) cout << "Rank " << rank << " reads " << chunks_per_process << " chunks " << endl;
-		else cout << "Master reads " << chunks_per_process << " chunks and " <<  extra_chunk << " extra data " << endl;
+		if(rank != 0) cout << "Rank " << rank << " reads " << chunks_to_read.size() << " chunks " << endl;
+		else cout << "Master reads " << chunks_to_read.size() << " chunks and " <<  extra_chunk << " extra data " << endl;
 
 	/* Map the chunks into KV pairs */
-		std::vector<std::map<std::string, uint64_t>> buckets(ranks);
+		vector<map<string, uint64_t>> buckets(ranks);
 		char *buf = (char*) malloc(CHUNK_SIZE + 1);
 		char *word = (char*) malloc(CHUNK_SIZE + 1);
 		//%#OMP?
-		for(int i = 0; i < chunks_per_process; i++) {
-			MPI_File_read_at(f, rank*CHUNK_SIZE*chunks_per_process + i*CHUNK_SIZE, buf, CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
+		for(int chunk : chunks_to_read) {
+			MPI_File_read_at(f, chunk*CHUNK_SIZE, buf, CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
 			buf[CHUNK_SIZE] = '\0';
 			int c = 0;
 			while(c < CHUNK_SIZE) {
@@ -96,7 +97,7 @@ int main(int argc, char *argv[]){
 				word[w] = '\0';
 		
 				if(w != 0) {
-					std::hash<std::string> hasher;
+					hash<string> hasher;
 					int h = hasher(word) % ranks;
 					buckets[h][word] = (buckets[h].count(word)) ? buckets[h][word] + 1 : 1;
 				}
@@ -105,7 +106,7 @@ int main(int argc, char *argv[]){
 
 		if(extra_chunk != 0 && rank == 0) {
 			cout << "Reading extra big chungus. Time: " << (MPI_Wtime() - start_time) << endl;			
-			MPI_File_read_at(f, ranks*CHUNK_SIZE*chunks_per_process, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+			MPI_File_read_at(f, ranks*CHUNK_SIZE*total_chunks - CHUNK_SIZE, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
 			cout << "Chungus read. Time: " << (MPI_Wtime() - start_time) << endl;			
 			buf[extra_chunk] = '\0';
 			int c = 0;
@@ -121,7 +122,7 @@ int main(int argc, char *argv[]){
 				word[w] = '\0';
 
 				if(w != 0) {
-					std::hash<std::string> hasher;
+					hash<string> hasher;
 					int h = hasher(word) % ranks;
 					buckets[h][word] = (buckets[h].count(word)) ? buckets[h][word] + 1 : 1; 
 				}

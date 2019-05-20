@@ -6,7 +6,7 @@
 #SBATCH --nodes=5
 #SBATCH -e error_file.e
 #SBATCH --mail-type=END
-#SBATCH --mail-user=sorme,mawass,tedwards
+#SBATCH --mail-user=sorme,mawass
 
 mkdir -p Results
 
