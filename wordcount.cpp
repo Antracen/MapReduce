@@ -1,5 +1,10 @@
 // TODO:
 	// Free memory when not needed anymore
+	// Make sure it handles running on only one process
+	// Make sure it handles running on "too many" processes (some get no chunks)
+	// Do we need a more explicit "reduce" call?
+	// Can we utilize OpenMP?
+	// Can we utilize operations such as gather, alltoall, scatter etc?
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 #define CHUNK_SIZE 64000000
@@ -63,9 +68,9 @@ int main(int argc, char *argv[]){
 			int c = 0;
 			while(c < CHUNK_SIZE) {
 				int w = 0;
-				while(!isalpha(buf[c]) && c < CHUNK_SIZE) c++;
+				while(!isalnum(buf[c]) && c < CHUNK_SIZE) c++;
 
-				while(c < CHUNK_SIZE && (isalpha(buf[c]) || buf[c] == '\'')) {
+				while(c < CHUNK_SIZE && (isalnum(buf[c]) || buf[c] == '\'')) {
 					word[w] = tolower(buf[c]);
 					c++;
 					w++;
@@ -132,8 +137,9 @@ int main(int argc, char *argv[]){
 			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
 			MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
 			MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-			char *word = new char[sizeOfIncoming];
+			char *word = new char[sizeOfIncoming+1];
 			MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+			word[sizeOfIncoming] = '\0';
 			bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 			amount--; 
         }
@@ -158,8 +164,9 @@ int main(int argc, char *argv[]){
 				MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
 				MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
 				MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-				char *word = new char[sizeOfIncoming];
+				char *word = new char[sizeOfIncoming + 1];
 				MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+				word[sizeOfIncoming] = '\0';
 				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 				amount--; 
 			}
