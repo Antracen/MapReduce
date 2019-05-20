@@ -1,7 +1,6 @@
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
-// #define CHUNK_SIZE 64000000
-#define CHUNK_SIZE 1000
+#define CHUNK_SIZE 64000000
 
 #include <mpi.h>
 #include <iostream>
@@ -17,6 +16,8 @@ using namespace std;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
+
+	double start_time = MPI_Wtime();
 
 	int res;
 
@@ -110,7 +111,7 @@ int main(int argc, char *argv[]){
 		MPI_Request *requests = new MPI_Request[ranks];
 		MPI_Request *requestsCount = new MPI_Request[ranks];
 		// # pragma ompa 
-		for(size_t i = 0; i < buckets.size(); i++) {
+		for(size_t i = 0; i < ranks; i++) {
 			int count = 0;
 			for(auto &p : buckets[i]) {
 				const char *word = p.first.c_str();
@@ -135,10 +136,6 @@ int main(int argc, char *argv[]){
 			amount--; 
         }
 
-		// Make sure you send everything
-		MPI_Waitall(ranks,requestsCount,MPI_STATUS_IGNORE);
-		MPI_Waitall(ranks,requests,MPI_STATUS_IGNORE);
-
 	/* Other guys send their parts while master gets everything and prints */
 		int bucket_size = bucket.size();
 		MPI_Reduce(&bucket_size, &amount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -153,7 +150,6 @@ int main(int argc, char *argv[]){
 			}
 			
 		} else {		
-			cout << "The guys says master should recieve " << amount << endl; 
 			// Ta emot skit 
 			while(amount > 0) {
 				MPI_Status s1,s2;
@@ -162,10 +158,8 @@ int main(int argc, char *argv[]){
 				MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
 				char *word = new char[sizeOfIncoming];
 				MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-				//cout << "I am master and got a message: (" << word <<  "," << count << ")" << endl; 
 				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 				amount--; 
-				//cout << amount << endl;
 			}
 
 			for(auto &p : bucket) {
@@ -173,6 +167,8 @@ int main(int argc, char *argv[]){
 			}
 		}
 
-
+	double time = MPI_Wtime() - start_time;
+	cout << "Time: " << time << endl;
+	
 	MPI_Finalize();
 }

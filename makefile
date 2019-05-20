@@ -1,4 +1,5 @@
-CC_local = mpiCC
+CC_local=mpiCC
+CC_beskow=CC
 
 FLAGS = -std=c++11 -g -Wall -pedantic -fopenmp
 
@@ -7,3 +8,6 @@ clean:
 
 local:
 	$(CC_local) $(FLAGS) -o wordcount.out wordcount.cpp
+
+beskow:
+	$(CC_beskow) $(FLAGS) -o wordcount.out wordcount.cpp
