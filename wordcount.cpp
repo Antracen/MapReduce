@@ -19,7 +19,12 @@
 #include <string>
 #include <regex>
 #include <algorithm>
-using namespace std;
+#include <functional>
+
+using std::map;
+using std::string;
+using std::cout;
+using std::endl;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
@@ -54,8 +59,21 @@ int main(int argc, char *argv[]){
 	/* Calculate what to read */
 		MPI_Offset file_size;
 		MPI_File_get_size(f, &file_size);
-		int chunks_per_process = file_size / CHUNK_SIZE / ranks;
+		int total_chunks = file_size / CHUNK_SIZE;
+		int chunks_per_process = total_chunks / ranks;
+		int left_chunks = total_chunks % ranks;
+		if(left_chunks != 0) {
+			if(rank + 1 <= left_chunks) chunks_per_process += 1;
+		}		
 		int extra_chunk = file_size % CHUNK_SIZE;
+
+		if(rank == 0) {
+			cout << "File size: " << file_size << endl;
+			cout << "Total chunks: " << total_chunks << endl;
+		}
+
+		if(rank != 0) cout << "Rank " << rank << " reads " << chunks_per_process << " chunks " << endl;
+		else cout << "Master reads " << chunks_per_process << " chunks and " <<  extra_chunk << " extra data " << endl;
 
 	/* Map the chunks into KV pairs */
 		std::vector<std::map<std::string, uint64_t>> buckets(ranks);
@@ -86,19 +104,22 @@ int main(int argc, char *argv[]){
 		}
 
 		if(extra_chunk != 0 && rank == 0) {
+			cout << "Reading extra big chungus. Time: " << (MPI_Wtime() - start_time) << endl;			
 			MPI_File_read_at(f, ranks*CHUNK_SIZE*chunks_per_process, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+			cout << "Chungus read. Time: " << (MPI_Wtime() - start_time) << endl;			
 			buf[extra_chunk] = '\0';
 			int c = 0;
 			while(c < extra_chunk) {
 				int w = 0;
-				while(!isalpha(buf[c]) && c < extra_chunk) c++;
+				while(!isalnum(buf[c]) && c < extra_chunk) c++;
 
-				while(c < extra_chunk && (isalpha(buf[c]) || buf[c] == '\'')) {
+				while(c < extra_chunk && (isalnum(buf[c]) || buf[c] == '\'')) {
 					word[w] = tolower(buf[c]);
 					c++;
 					w++;
 				}
 				word[w] = '\0';
+
 				if(w != 0) {
 					std::hash<std::string> hasher;
 					int h = hasher(word) % ranks;
@@ -106,6 +127,8 @@ int main(int argc, char *argv[]){
 				}
 			}
 		}
+
+		cout << "Map phase done. Rank: " << rank << " time: " << (MPI_Wtime() - start_time) << endl;
 
 	/* Send the data to each owning process */
 		// Calculate (1) how much to send to everyone and (2) how much I will receive
@@ -127,6 +150,8 @@ int main(int argc, char *argv[]){
 				count++;
 			}
 		}
+
+		cout << "Sent all data " << (MPI_Wtime() - start_time) << endl;
         
 		map<string,int> bucket; // All my worlds
 		// Receive my words that the other guys had
@@ -144,6 +169,8 @@ int main(int argc, char *argv[]){
 			amount--; 
         }
 
+		cout << "Received my data " << (MPI_Wtime() - start_time) << endl;
+
 	/* Other guys send their parts while master gets everything and prints */
 		int bucket_size = bucket.size();
 		MPI_Reduce(&bucket_size, &amount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -156,7 +183,6 @@ int main(int argc, char *argv[]){
 				MPI_Isend(word,strlen(word),MPI_CHAR,0,count,MPI_COMM_WORLD,requests);
 				count++;
 			}
-			
 		} else {		
 			// Ta emot skit 
 			while(amount > 0) {
@@ -170,6 +196,8 @@ int main(int argc, char *argv[]){
 				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 				amount--; 
 			}
+
+			cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
 
 			for(auto &p : bucket) {
 				cout << "(" << p.first << "," << p.second << ")" << endl;

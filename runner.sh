@@ -10,6 +10,5 @@
 
 mkdir -p Results
 
-aprun -q -n 80 ./wordcount.out /cfs/klemming/scratch/s/sergiorg/DD2356/input/wikipedia_10GB.txt >> Results/10GB_80.csv
-aprun -q -n 160 ./wordcount.out /cfs/klemming/scratch/s/sergiorg/DD2356/input/wikipedia_10GB.txt >> Results/10GB_160.csv
+aprun -q -n 160 ./wordcount.out /cfs/klemming/scratch/s/sergiorg/DD2356/input/wikipedia_160GB.txt >> Results/160GB_160.csv
 

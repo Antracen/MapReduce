@@ -11,3 +11,6 @@ local:
 
 beskow:
 	$(CC_beskow) $(FLAGS) -o wordcount.out wordcount.cpp
+
+profile_beskow:
+	$(CC_beskow) $(FLAGS) -lmap-sampler --eh-frame-hdr -o wordcount.out wordcount.cpp
