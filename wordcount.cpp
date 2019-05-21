@@ -147,7 +147,8 @@ int main(int argc, char *argv[]){
 			for(auto &p : buckets[i]) {
 				const char *word = p.first.c_str();
 				MPI_Isend(&p.second,1,MPI_INT,i,count,MPI_COMM_WORLD,&requestsCount[i]); // Really need unique tag here?
-				MPI_Isend(word,strlen(word),MPI_CHAR,i,count,MPI_COMM_WORLD,&requests[i]);
+				MPI_Isend(word,strlen(word)+1,MPI_CHAR,i,count,MPI_COMM_WORLD,&requests[i]);
+				cout << "("<<word << "," << p.second << ") sent to " << i << endl; 
 				count++;
 			}
 		}
@@ -163,9 +164,9 @@ int main(int argc, char *argv[]){
 			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
 			MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
 			MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-			char *word = new char[sizeOfIncoming+1];
+			char *word = new char[sizeOfIncoming];
 			MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-			word[sizeOfIncoming] = '\0';
+                        cout << "("<<word << "," << count << ") received by " << rank << endl; 
 			bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 			amount--; 
         }
@@ -181,7 +182,8 @@ int main(int argc, char *argv[]){
 			for(auto &p : bucket) {
 				const char *word = p.first.c_str();
 				MPI_Isend(&p.second,1,MPI_INT,0,count,MPI_COMM_WORLD,requestsCount); // New request-arrays? 
-				MPI_Isend(word,strlen(word),MPI_CHAR,0,count,MPI_COMM_WORLD,requests);
+				MPI_Isend(word,strlen(word)+1,MPI_CHAR,0,count,MPI_COMM_WORLD,requests);
+	                        cout << "("<<word << "," << p.second << ") sent to " << 0 << endl; 
 				count++;
 			}
 		} else {		
@@ -191,17 +193,16 @@ int main(int argc, char *argv[]){
 				MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
 				MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
 				MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-				char *word = new char[sizeOfIncoming + 1];
+				char *word = new char[sizeOfIncoming];
 				MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-				word[sizeOfIncoming] = '\0';
+                                cout << "("<<word << "," << count << ") received by " << 0 << endl;
 				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
 				amount--; 
 			}
 
 			cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
-
 			for(auto &p : bucket) {
-				cout << "(" << p.first << "," << p.second << ")" << endl;
+				cout << "(" << p.first << "," << p.second << ") in 0" << endl;
 			}
 			double time = MPI_Wtime() - start_time;
 			cout << "Time: " << time << endl;
