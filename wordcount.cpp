@@ -11,6 +11,8 @@
 #define NONEXISTENT_FILE 1919
 #define CHUNK_SIZE 64000000
 
+//#define DEBUG
+
 #include <mpi.h>
 #include <iostream>
 #include <sstream>
@@ -70,10 +72,12 @@ int main(int argc, char *argv[]){
 		for(int i = rank; i < total_chunks; i++) if(i % ranks == rank) chunks_to_read.push_back(i);
 		uint64_t extra_chunk = file_size % CHUNK_SIZE;
 
-		if(rank == 0) cout << "File size: " << file_size << endl << "Total chunks: " << total_chunks << endl;
+		#ifdef DEBUG
+			if(rank == 0) cout << "File size: " << file_size << endl << "Total chunks: " << total_chunks << endl;
 
 		if(rank != 0) cout << "Rank " << rank << " reads " << chunks_to_read.size() << " chunks " << endl;
 		else cout << "Master reads " << chunks_to_read.size() << " chunks and " <<  extra_chunk << " extra data " << endl;
+		#endif
 
 	/* Map the chunks into KV pairs */
 		vector<map<string, uint64_t>> buckets(ranks);
@@ -88,15 +92,21 @@ int main(int argc, char *argv[]){
 		}
 
 		if(extra_chunk != 0 && rank == 0) {
+			#ifdef DEBUG
 			cout << "Reading extra big chungus. Time: " << (MPI_Wtime() - start_time) << endl;			
+			#endif
 			MPI_File_read_at(f, file_size - extra_chunk, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+			#ifdef DEBUG
 			cout << "Chungus read. Time: " << (MPI_Wtime() - start_time) << endl;			
+			#endif
 			buf[extra_chunk] = '\0';
 			uint64_t c = 0;
 			while(c < extra_chunk) read_word(word, buf, c, extra_chunk, buckets, ranks);
 		}
 
+		#ifdef DEBUG
 		cout << "Map phase done. Rank: " << rank << " time: " << (MPI_Wtime() - start_time) << endl;
+		#endif
 
 	/* Send the data to each owning process */
 		// Calculate (1) how much to send to everyone and (2) how much I will receive
@@ -109,7 +119,9 @@ int main(int argc, char *argv[]){
 		// Send the words to their rightful owner
 		for(int i = 0; i < ranks; i++) send_words(buckets[i],i);
 
+		#ifdef DEBUG
 		cout << "Sent all data " << (MPI_Wtime() - start_time) << endl;
+		#endif
         
 
 		map<string,uint64_t> bucket; // All my worlds
@@ -117,7 +129,9 @@ int main(int argc, char *argv[]){
 		int amount = receive_amount[rank]; // How much I should receive
 		receive_words(bucket, amount); 
 
+		#ifdef DEBUG
 		cout << "Received my data " << (MPI_Wtime() - start_time) << endl;
+		#endif
 
 	/* Other guys send their parts while master gets everything and prints */
 		int bucket_size = bucket.size();
@@ -129,7 +143,9 @@ int main(int argc, char *argv[]){
 			// Receive words
 			receive_words(bucket, amount);
 
+			#ifdef DEBUG
 			cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
+			#endif
 			for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
 			double time = MPI_Wtime() - start_time;
 			cout << "Time: " << time << endl;
