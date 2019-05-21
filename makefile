@@ -15,8 +15,14 @@ commhandler_local:
 iohandler_local:
 	$(CC_local) $(FLAGS) -c iohandler.cpp
 
-beskow:
-	$(CC_beskow) $(FLAGS) -o wordcount.out wordcount.cpp
+beskow: iohandler_beskow commhandler_beskow
+	$(CC_beskow) $(FLAGS) -o wordcount.out commhandler.o iohandler.o wordcount.cpp
+
+commhandler_beskow:
+	$(CC_beskow) $(FLAGS) -c commhandler.cpp
+
+iohandler_beskow:
+	$(CC_beskow) $(FLAGS) -c iohandler.cpp
 
 profile_beskow:
 	$(CC_beskow) $(FLAGS) -lmap-sampler --eh-frame-hdr -o wordcount.out wordcount.cpp
