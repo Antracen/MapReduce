@@ -1,8 +1,5 @@
 // TODO:
 	// Free memory when not needed anymore
-	// Make sure it handles running on only one process
-	// Make sure it handles running on "too many" processes (some get no chunks)
-	// Make sure it handles no chunks (only extra chunk)
 	// Do we need a more explicit "reduce" call?
 	// Can we utilize OpenMP?
 	// Can we utilize operations such as gather, alltoall, scatter etc?
