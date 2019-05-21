@@ -2,9 +2,11 @@
 	// Free memory when not needed anymore
 	// Make sure it handles running on only one process
 	// Make sure it handles running on "too many" processes (some get no chunks)
+	// Make sure it handles no chunks (only extra chunk)
 	// Do we need a more explicit "reduce" call?
 	// Can we utilize OpenMP?
 	// Can we utilize operations such as gather, alltoall, scatter etc?
+	// Which variables should be uint64_t?
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 #define CHUNK_SIZE 64000000
@@ -20,6 +22,8 @@
 #include <regex>
 #include <algorithm>
 #include <functional>
+#include "commhandler.h"
+#include "iohandler.h"
 
 using std::map;
 using std::string;
@@ -63,15 +67,10 @@ int main(int argc, char *argv[]){
 		MPI_File_get_size(f, &file_size);
 		int total_chunks = file_size / CHUNK_SIZE;
 		vector<int> chunks_to_read;
-		for(int i = rank; i < total_chunks; i++) {
-			if(i % ranks == rank) chunks_to_read.push_back(i);
-		}
-		int extra_chunk = file_size % CHUNK_SIZE;
+		for(int i = rank; i < total_chunks; i++) if(i % ranks == rank) chunks_to_read.push_back(i);
+		uint64_t extra_chunk = file_size % CHUNK_SIZE;
 
-		if(rank == 0) {
-			cout << "File size: " << file_size << endl;
-			cout << "Total chunks: " << total_chunks << endl;
-		}
+		if(rank == 0) cout << "File size: " << file_size << endl << "Total chunks: " << total_chunks << endl;
 
 		if(rank != 0) cout << "Rank " << rank << " reads " << chunks_to_read.size() << " chunks " << endl;
 		else cout << "Master reads " << chunks_to_read.size() << " chunks and " <<  extra_chunk << " extra data " << endl;
@@ -84,49 +83,17 @@ int main(int argc, char *argv[]){
 		for(int chunk : chunks_to_read) {
 			MPI_File_read_at(f, chunk*CHUNK_SIZE, buf, CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
 			buf[CHUNK_SIZE] = '\0';
-			int c = 0;
-			while(c < CHUNK_SIZE) {
-				int w = 0;
-				while(!isalnum(buf[c]) && c < CHUNK_SIZE) c++;
-
-				while(c < CHUNK_SIZE && (isalnum(buf[c]) || buf[c] == '\'')) {
-					word[w] = tolower(buf[c]);
-					c++;
-					w++;
-				}
-				word[w] = '\0';
-		
-				if(w != 0) {
-					hash<string> hasher;
-					int h = hasher(word) % ranks;
-					buckets[h][word] = (buckets[h].count(word)) ? buckets[h][word] + 1 : 1;
-				}
-			}
+			uint64_t c = 0;
+			while(c < CHUNK_SIZE) read_word(word, buf, c, CHUNK_SIZE, buckets, ranks);
 		}
 
 		if(extra_chunk != 0 && rank == 0) {
 			cout << "Reading extra big chungus. Time: " << (MPI_Wtime() - start_time) << endl;			
-			MPI_File_read_at(f, ranks*CHUNK_SIZE*total_chunks - CHUNK_SIZE, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+			MPI_File_read_at(f, file_size - extra_chunk, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
 			cout << "Chungus read. Time: " << (MPI_Wtime() - start_time) << endl;			
 			buf[extra_chunk] = '\0';
-			int c = 0;
-			while(c < extra_chunk) {
-				int w = 0;
-				while(!isalnum(buf[c]) && c < extra_chunk) c++;
-
-				while(c < extra_chunk && (isalnum(buf[c]) || buf[c] == '\'')) {
-					word[w] = tolower(buf[c]);
-					c++;
-					w++;
-				}
-				word[w] = '\0';
-
-				if(w != 0) {
-					hash<string> hasher;
-					int h = hasher(word) % ranks;
-					buckets[h][word] = (buckets[h].count(word)) ? buckets[h][word] + 1 : 1; 
-				}
-			}
+			uint64_t c = 0;
+			while(c < extra_chunk) read_word(word, buf, c, extra_chunk, buckets, ranks);
 		}
 
 		cout << "Map phase done. Rank: " << rank << " time: " << (MPI_Wtime() - start_time) << endl;
@@ -140,36 +107,15 @@ int main(int argc, char *argv[]){
 		}
 
 		// Send the words to their rightful owner
-		MPI_Request *requests = new MPI_Request[ranks];
-		MPI_Request *requestsCount = new MPI_Request[ranks];
-		for(int i = 0; i < ranks; i++) {
-			int count = 0;
-			for(auto &p : buckets[i]) {
-				const char *word = p.first.c_str();
-				MPI_Isend(&p.second,1,MPI_INT,i,count,MPI_COMM_WORLD,&requestsCount[i]); // Really need unique tag here?
-				MPI_Isend(word,strlen(word)+1,MPI_CHAR,i,count,MPI_COMM_WORLD,&requests[i]);
-				cout << "("<<word << "," << p.second << ") sent to " << i << endl; 
-				count++;
-			}
-		}
+		for(int i = 0; i < ranks; i++) send_words(buckets[i],i);
 
 		cout << "Sent all data " << (MPI_Wtime() - start_time) << endl;
         
-		map<string,int> bucket; // All my worlds
+
+		map<string,uint64_t> bucket; // All my worlds
 		// Receive my words that the other guys had
 		int amount = receive_amount[rank]; // How much I should receive
-		int sizeOfIncoming, count;
-		while(amount > 0) {
-			MPI_Status s1,s2;
-			MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
-			MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
-			MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-			char *word = new char[sizeOfIncoming];
-			MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                        cout << "("<<word << "," << count << ") received by " << rank << endl; 
-			bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
-			amount--; 
-        }
+		receive_words(bucket, amount); 
 
 		cout << "Received my data " << (MPI_Wtime() - start_time) << endl;
 
@@ -178,35 +124,15 @@ int main(int argc, char *argv[]){
 		MPI_Reduce(&bucket_size, &amount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 		amount = amount - bucket_size;
 		if(rank != 0) {
-			int count = 0; 
-			for(auto &p : bucket) {
-				const char *word = p.first.c_str();
-				MPI_Isend(&p.second,1,MPI_INT,0,count,MPI_COMM_WORLD,requestsCount); // New request-arrays? 
-				MPI_Isend(word,strlen(word)+1,MPI_CHAR,0,count,MPI_COMM_WORLD,requests);
-	                        cout << "("<<word << "," << p.second << ") sent to " << 0 << endl; 
-				count++;
-			}
+			send_words(bucket,0);
 		} else {		
-			// Ta emot skit 
-			while(amount > 0) {
-				MPI_Status s1,s2;
-				MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
-				MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
-				MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
-				char *word = new char[sizeOfIncoming];
-				MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-                                cout << "("<<word << "," << count << ") received by " << 0 << endl;
-				bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
-				amount--; 
-			}
+			// Receive words
+			receive_words(bucket, amount);
 
 			cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
-			for(auto &p : bucket) {
-				cout << "(" << p.first << "," << p.second << ") in 0" << endl;
-			}
+			for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
 			double time = MPI_Wtime() - start_time;
 			cout << "Time: " << time << endl;
 		}
-
 	MPI_Finalize();
 }

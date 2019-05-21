@@ -6,8 +6,14 @@ FLAGS = -std=c++11 -g -Wall -pedantic -fopenmp
 clean:
 	rm -f *.o *.out
 
-local:
-	$(CC_local) $(FLAGS) -o wordcount.out wordcount.cpp
+local: iohandler_local commhandler_local
+	$(CC_local) $(FLAGS) -o wordcount.out commhandler.o iohandler.o wordcount.cpp
+
+commhandler_local:
+	$(CC_local) $(FLAGS) -c commhandler.cpp
+
+iohandler_local:
+	$(CC_local) $(FLAGS) -c iohandler.cpp
 
 beskow:
 	$(CC_beskow) $(FLAGS) -o wordcount.out wordcount.cpp
