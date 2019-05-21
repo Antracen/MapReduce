@@ -12,6 +12,7 @@
 #define CHUNK_SIZE 64000000
 
 //#define DEBUG
+#define COUNTSORT
 
 #include <mpi.h>
 #include <iostream>
@@ -32,13 +33,16 @@ using std::string;
 using std::cout;
 using std::endl;
 using std::vector;
+using std::pair;
 using std::hash;
 
 int main(int argc, char *argv[]){
 	MPI_Init(&argc,&argv);
 
+	#ifdef DEBUG
 	double start_time = MPI_Wtime();
-
+	#endif
+	
 	int res;
 
 	char *filename;
@@ -144,11 +148,19 @@ int main(int argc, char *argv[]){
 			receive_words(bucket, amount);
 
 			#ifdef DEBUG
-			cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
+				cout << "Master has all words " << (MPI_Wtime() - start_time) << endl;
 			#endif
-			for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
-			double time = MPI_Wtime() - start_time;
-			cout << "Time: " << time << endl;
-		}
+			#ifdef COUNTSORT
+				vector<pair<string,int>> wordsToSort; 
+				for(auto &p : bucket) wordsToSort.emplace_back(p.first,p.second); 
+				sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second < e2.second;}); 
+				for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl; 
+			#else
+				for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
+				double time = MPI_Wtime() - start_time;
+				cout << "Time: " << time << endl;
+			#endif
+		} 
+		
 	MPI_Finalize();
 }
