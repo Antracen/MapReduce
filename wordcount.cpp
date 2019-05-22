@@ -111,10 +111,12 @@ int main(int argc, char *argv[]){
 
 	/* Send the data to each owning process */
 		// Calculate (1) how much to send to everyone and (2) how much I will receive
-		int *receive_amount = new int[ranks]; // How much will I receive in total
+		//int *receive_amount = new int[ranks]; // How much will I receive in total
+		int amount;
 		for(int i = 0; i < ranks; i++){ 
 			int num_words = buckets[i].size();
-			MPI_Allreduce(&num_words, &receive_amount[i], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+			//MPI_Allreduce(&num_words, &receive_amount[i], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+			MPI_Reduce(&num_words,&amount,1,MPI_INT,MPI_SUM,i,MPI_COMM_WORLD);
 		}
 
 		// Send the words to their rightful owner
@@ -123,11 +125,10 @@ int main(int argc, char *argv[]){
 		#ifdef DEBUG
 		cout << "Sent all data " << (MPI_Wtime() - start_time) << endl;
 		#endif
-        
-
 		map<string,uint64_t> bucket; // All my worlds
 		// Receive my words that the other guys had
-		int amount = receive_amount[rank]; // How much I should receive
+		//int amount = receive_amount[rank]; // How much I should receive
+
 		receive_words(bucket, amount); 
 
 		#ifdef DEBUG
