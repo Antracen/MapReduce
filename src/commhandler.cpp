@@ -12,12 +12,12 @@ void receive_words(map<string, uint64_t> &bucket, int amount) {
         int sizeOfIncoming; 
         MPI_Status s1,s2;
         MPI_Recv(&count,1,MPI_INT,MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,&s1); // Get a count
-        MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends (who sent the count)
+        MPI_Probe(s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,&s2); // Find out who sends word associated with count (who sent the count)
         MPI_Get_count(&s2, MPI_CHAR, &sizeOfIncoming); // Get length of incoming word
         char *word = new char[sizeOfIncoming];
         MPI_Recv(word,sizeOfIncoming,MPI_CHAR,s1.MPI_SOURCE,s1.MPI_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
        	#ifdef DEBUG
-		cout << "("<<word << "," << count << ") received by " << 0 << endl;
+		    cout << "("<<word << "," << count << ") received by " << 0 << endl;
 		#endif
         bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
         amount--; 
