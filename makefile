@@ -22,10 +22,10 @@ beskow: iohandler_beskow commhandler_beskow
 	$(CC_beskow) $(FLAGS) -o bin/wordcount.out bin/commhandler.o bin/iohandler.o src/wordcount.cpp
 
 commhandler_beskow: folder
-	$(CC_beskow) $(FLAGS) -c src/commhandler.cpp
+	$(CC_beskow) $(FLAGS) -o bin/commhandler.o -c src/commhandler.cpp
 
 iohandler_beskow: folder
-	$(CC_beskow) $(FLAGS) -c src/iohandler.cpp
+	$(CC_beskow) $(FLAGS) -o bin/iohandler.o -c src/iohandler.cpp
 
 profile_beskow: folder
 	$(CC_beskow) $(FLAGS) -lmap-sampler --eh-frame-hdr -o bin/wordcount.out src/wordcount.cpp
