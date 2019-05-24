@@ -5,6 +5,7 @@
     // Can we utilize operations such as gather, alltoall, scatter etc?
     // Which variables should be uint64_t?
     // Can we use Ireduce?
+    // Can we utilize padding?
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 #define CHUNK_SIZE 64000000
@@ -31,13 +32,11 @@ using std::hash;
 using std::max;
 
 int main(int argc, char *argv[]){
-    MPI_Init(&argc,&argv);
-
-    double start_time = MPI_Wtime();
-
-    int res;
-
-    char *filename;
+    /* Initialize */
+        MPI_Init(&argc,&argv);
+        double start_time = MPI_Wtime();
+        int res;
+        char *filename;
 
     /* Parse command line arguments */
         if(argc < 2) {
@@ -63,34 +62,40 @@ int main(int argc, char *argv[]){
     /* Calculate what to read */
         MPI_Offset file_size;
         MPI_File_get_size(f, &file_size);
-        int total_chunks = file_size / CHUNK_SIZE;
-        vector<int> chunks_to_read;
-        for(int i = rank; i < total_chunks; i++) if(i % ranks == rank) chunks_to_read.push_back(i);
-        uint64_t extra_chunk = file_size % CHUNK_SIZE;
+
+        int num_chunks_total = file_size / CHUNK_SIZE;
+        int extra_chunk = file_size % CHUNK_SIZE;
+        int num_chunks_local = num_chunks_total / ranks;
+        if(num_chunks_total % ranks > rank) num_chunks_local++;
 
     /* Map the chunks into KV pairs */
-        int all_buckets_size = (extra_chunk == 0) ? chunks_to_read.size() : chunks_to_read.size() + 1;
+        int all_buckets_size = (extra_chunk == 0) ? num_chunks_total : num_chunks_total + 1;
         vector<vector<map<string, uint64_t>>> all_buckets(all_buckets_size);
-        size_t buf_size = max((CHUNK_SIZE+1)*chunks_to_read.size(), extra_chunk+1);
+        for(int i = 0; i < all_buckets_size; i++) all_buckets[i].resize(ranks);
+
+        size_t buf_size = max((CHUNK_SIZE+1)*num_chunks_local, extra_chunk + 1);
         char* buf = (char*) malloc(buf_size);
         char* word = (char*) malloc(buf_size);
 
         #pragma omp parallel for
-        for(size_t i = 0; i < chunks_to_read.size(); i++) {
-            int chunk = chunks_to_read[i];
-            vector<map<string, uint64_t>> buckets(ranks);
+        for(int i = 0; i < num_chunks_local; i++) {
+            int chunk = rank + i*ranks;
             MPI_File_read_at(f, chunk*CHUNK_SIZE, &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
             buf[i*(CHUNK_SIZE+1) + CHUNK_SIZE] = '\0';
-            uint64_t c = 0; // DO NOT REMOVE c
-            while(c < CHUNK_SIZE) read_word(word, &buf[i*(CHUNK_SIZE+1)], c, CHUNK_SIZE, all_buckets[i], ranks);
+            read_chunk(word, &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, all_buckets[i], ranks);
         }
+        #ifdef DEBUG
+            cout << "Regular chunks done reading. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
+        #endif
 
         if(extra_chunk != 0 && rank == 0) {
-            MPI_File_read_at(f, file_size - extra_chunk, &buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+            MPI_File_read_at(f, file_size - extra_chunk, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
             buf[extra_chunk] = '\0';
-            uint64_t c = 0; // DO NOT REMOVE c
-            while(c < extra_chunk) read_word(word, buf, c, extra_chunk, all_buckets[chunks_to_read.size()], ranks);
+            read_chunk(word, buf, extra_chunk, all_buckets[num_chunks_local], ranks);
         }
+        #ifdef DEBUG
+            if(rank == 0) cout << "Extra chunk done reading. (master, time: " << (MPI_Wtime() - start_time) << ")" << endl;
+        #endif
 
         #ifdef DEBUG
             cout << "Map phase done. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
@@ -133,17 +138,20 @@ int main(int argc, char *argv[]){
             #ifdef DEBUG
                 cout << "MapReduce finished, printing results. (time " << (MPI_Wtime() - start_time) << ")" << endl;
             #endif
-            #ifdef COUNTSORT
-                vector<pair<string,int>> wordsToSort;
-                for(auto &p : bucket) wordsToSort.emplace_back(p.first,p.second);
-                sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second);
-                for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl;
-                double time = MPI_Wtime() - start_time;
-                cout << "Time: " << time << endl;
-            #else
-                for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
-                double time = MPI_Wtime() - start_time;
-                cout << "Time: " << time << endl;
+            // If in debug mode, we don't care about the words.
+            #ifndef DEBUG
+                #ifdef COUNTSORT
+                    vector<pair<string,int>> wordsToSort;
+                    for(auto &p : bucket) wordsToSort.emplace_back(p.first,p.second);
+                    sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second);
+                    for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl;
+                    double time = MPI_Wtime() - start_time;
+                    cout << "Time: " << time << endl;
+                #else
+                    for(auto &p : bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
+                    double time = MPI_Wtime() - start_time;
+                    cout << "Time: " << time << endl;
+                #endif
             #endif
         }
 
