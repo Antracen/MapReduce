@@ -1,7 +1,7 @@
 // TODO:
     // Free memory when not needed anymore
     // Do we need a more explicit "reduce" call?
-    // Can we utilize OpenMP?
+    // Can we utilize OpenMP further?
     // Can we utilize operations such as gather, alltoall, scatter etc?
     // Which variables should be uint64_t?
     // Can we use Ireduce?
@@ -135,10 +135,9 @@ int main(int argc, char *argv[]){
             // Receive words
             receive_words(bucket, amount);
 
-            #ifdef DEBUG
-                cout << "MapReduce finished, printing results. (time " << (MPI_Wtime() - start_time) << ")" << endl;
-            #endif
-            // If in debug mode, we don't care about the words.
+	    double end_time = MPI_Wtime();
+
+	    // If in debug mode, we don't care about the words.
             #ifndef DEBUG
                 #ifdef COUNTSORT
                     vector<pair<string,int>> wordsToSort;
@@ -153,10 +152,14 @@ int main(int argc, char *argv[]){
                     cout << "Time: " << time << endl;
                 #endif
             #endif
+	    cout << "Time excluding printing = " << (end_time-start_time) << endl;
+	    #ifndef DEBUG											      	
+	    	cout << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
+	    #endif												     
         }
 
     /* Free memory and finalize */
-		free(buf);
-		free(word);
+	free(buf);
+	free(word);
         MPI_Finalize();
 }
