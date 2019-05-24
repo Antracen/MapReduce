@@ -1,13 +1,26 @@
 #include "commhandler.h"
 #include <cstring>
+#include <vector>
+#include <algorithm>
+#include <functional>
+
+using namespace std;
 
 using std::map; 
 using std::cout; 
 using std::endl; 
 using std::string;
+using std::vector;
 
 void receive_words(map<string, uint64_t> &bucket, int amount) {
-    while(amount > 0) {			
+    //while(amount > 0) {
+
+	typedef map<string,uint64_t> buck;
+	#pragma omp declare reduction(+ : buck : transform(omp_out.begin(),omp_out.end(),omp_in.begin(),omp_out.begin(), [](uint64_t &c1,uint64_t &c2){c1 += c2;}  )) initializer (omp_priv(omp_out)) 
+
+
+    #pragma omp parallel for reduction (+:bucket)
+    for(int i = amount; i > 0; i--){
         int count;
         int sizeOfIncoming; 
         MPI_Status s1,s2;
@@ -19,8 +32,9 @@ void receive_words(map<string, uint64_t> &bucket, int amount) {
        	#ifdef DEBUG
 		    cout << "("<<word << "," << count << ") received by " << 0 << endl;
 		#endif
-        bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
-        amount--; 
+	//#pragma omp critical
+       	bucket[word] += count;
+	//amount--; 
     }
 }
 

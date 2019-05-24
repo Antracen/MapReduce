@@ -113,6 +113,7 @@ int main(int argc, char *argv[]){
         }
 
         // Send the words to their rightful owner
+	#pragma omp parallel for
         for(size_t j = 0; j < all_buckets.size(); j++) {
             for(int i = 0; i < ranks; i++) send_words(all_buckets[j][i],i);
         }
