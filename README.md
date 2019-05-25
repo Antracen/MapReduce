@@ -8,6 +8,7 @@ https://www.coursera.org/lecture/hadoop/a-mapreduce-example-wordcount-in-detail-
 
 https://www.youtube.com/watch?v=cvhKoniK5Uo
 
+https://openmp.org/wp-content/uploads/HybridPP_Slides.pdf
 # Questions
 
 How should the data be stored, read and distributed across the nodes? Datastructures, reading procedure, sorting (?), output.
