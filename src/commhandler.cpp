@@ -15,7 +15,7 @@ void receive_words(map<string, unsigned long int> &bucket, int amount, MPI_Datat
         MPI_Recv(&message, 1, message_struct, MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE); // Get a count
 		unsigned long int count = message.count;
 		string word(message.word);
-        bucket[word] = (bucket.count(word)) ? bucket[word] + count : count;
+        bucket[word] += count;
         amount--; 
     }
 }
@@ -24,9 +24,7 @@ void send_words(map<string, unsigned long int> &bucket, int receiver, MPI_Dataty
     MPI_Request r1;
 	
     for(auto &p : bucket) { 
-		Message *message = new Message;
-		strcpy(message->word, p.first.c_str());
-		message->count = p.second;
+		Message *message = new Message(p.second,p.first.c_str());
 		MPI_Isend(message, 1, message_struct,receiver,MESSAGE_TAG,MPI_COMM_WORLD,&r1);
 	}
 }

@@ -59,13 +59,7 @@ int main(int argc, char *argv[]){
 
 	/* Create Message struct */
 		MPI_Datatype message_struct;
-		int struct_count = 2;
-		int struct_blocklengths[2] = {1, WORD_SIZE};
-		MPI_Aint struct_displacements[2];
-		struct_displacements[0] = 0;
-		MPI_Type_extent(MPI_UNSIGNED_LONG, &struct_displacements[1]);
-		MPI_Datatype struct_datatypes[2] = {MPI_UNSIGNED_LONG, MPI_CHAR};
-		MPI_Type_create_struct(struct_count, struct_blocklengths, struct_displacements, struct_datatypes, &message_struct);
+		MPI_Type_create_struct(2, new int[2]{1,WORD_SIZE},new MPI_Aint[2]{0,sizeof(uint64_t)}, new MPI_Datatype[2]{MPI_UNSIGNED_LONG,MPI_CHAR}, &message_struct);
 		MPI_Type_commit(&message_struct);
 
     /* Calculate what to read */
