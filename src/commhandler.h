@@ -9,5 +9,11 @@ using std::cout;
 using std::endl; 
 using std::string;
 
-void receive_words(map<string, uint64_t> &bucket, int amount);
-void send_words(map<string, uint64_t> &bucket, int receiver);
+struct Message {
+	unsigned long int count;
+	char word[WORD_SIZE];
+};
+
+void receive_words(map<string, unsigned long int> &bucket, int amount, MPI_Datatype &message_struct);
+void send_words(map<string, unsigned long int> &bucket, int receiver, MPI_Datatype &message_struct);
+

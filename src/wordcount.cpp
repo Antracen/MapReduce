@@ -3,15 +3,13 @@
     // Do we need a more explicit "reduce" call?
     // Can we utilize OpenMP further?
     // Can we utilize operations such as gather, alltoall, scatter etc?
-    // Which variables should be uint64_t?
+    // Which variables should be unsigned long int?
     // Can we use Ireduce?
     // Can we utilize padding?
+	// Should we have an unordered map?
+	// Make sure we free the memory allocated in Isend in the commhandler
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
-#define CHUNK_SIZE 64000000
-
-#define DEBUG
-// #define COUNTSORT
 
 #include "commhandler.h"
 #include "iohandler.h"
@@ -59,6 +57,17 @@ int main(int argc, char *argv[]){
             MPI_Abort(MPI_COMM_WORLD, NONEXISTENT_FILE);
         }
 
+	/* Create Message struct */
+		MPI_Datatype message_struct;
+		int struct_count = 2;
+		int struct_blocklengths[2] = {1, WORD_SIZE};
+		MPI_Aint struct_displacements[2];
+		struct_displacements[0] = 0;
+		MPI_Type_extent(MPI_UNSIGNED_LONG, &struct_displacements[1]);
+		MPI_Datatype struct_datatypes[2] = {MPI_UNSIGNED_LONG, MPI_CHAR};
+		MPI_Type_create_struct(struct_count, struct_blocklengths, struct_displacements, struct_datatypes, &message_struct);
+		MPI_Type_commit(&message_struct);
+
     /* Calculate what to read */
         MPI_Offset file_size;
         MPI_File_get_size(f, &file_size);
@@ -70,7 +79,7 @@ int main(int argc, char *argv[]){
 
     /* Map the chunks into KV pairs */
         int all_buckets_size = (extra_chunk == 0) ? num_chunks_total : num_chunks_total + 1;
-        vector<vector<map<string, uint64_t>>> all_buckets(all_buckets_size);
+        vector<vector<map<string, unsigned long int>>> all_buckets(all_buckets_size);
         for(int i = 0; i < all_buckets_size; i++) all_buckets[i].resize(ranks);
 
         size_t buf_size = max((CHUNK_SIZE+1)*num_chunks_local, extra_chunk + 1);
@@ -114,13 +123,17 @@ int main(int argc, char *argv[]){
 
         // Send the words to their rightful owner
         for(size_t j = 0; j < all_buckets.size(); j++) {
-            for(int i = 0; i < ranks; i++) send_words(all_buckets[j][i],i);
+            for(int i = 0; i < ranks; i++) send_words(all_buckets[j][i],i,message_struct);
         }
 
-        map<string,uint64_t> bucket; // All my worlds
+        #ifdef DEBUG
+            cout << "Sent words. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
+        #endif
+
+        map<string,unsigned long int> bucket; // All my words
         // Receive my words that the other guys had
 
-        receive_words(bucket, amount);
+        receive_words(bucket, amount, message_struct);
         #ifdef DEBUG
             cout << "Received all words. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
         #endif
@@ -130,10 +143,10 @@ int main(int argc, char *argv[]){
         MPI_Reduce(&bucket_size, &amount, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
         amount = amount - bucket_size;
         if(rank != 0) {
-            send_words(bucket,0);
+            send_words(bucket,0,message_struct);
         } else {
             // Receive words
-            receive_words(bucket, amount);
+            receive_words(bucket, amount, message_struct);
 
 	    double end_time = MPI_Wtime();
 
@@ -159,7 +172,8 @@ int main(int argc, char *argv[]){
         }
 
     /* Free memory and finalize */
-	free(buf);
-	free(word);
+		free(buf);
+		free(word);
         MPI_Finalize();
 }
+

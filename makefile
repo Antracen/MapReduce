@@ -1,7 +1,7 @@
 CC_local=mpiCC
 CC_beskow=CC
 
-FLAGS = -std=c++11 -g -Wall -pedantic -fopenmp
+FLAGS = -std=c++11 -g -Wall -pedantic -fopenmp -D WORD_SIZE=300 -D CHUNK_SIZE=64000000 -D DEBUGNOPE
 
 clean:
 	rm -f *.o *.out
@@ -29,3 +29,4 @@ iohandler_beskow: folder
 
 profile_beskow: folder
 	$(CC_beskow) $(FLAGS) -lmap-sampler --eh-frame-hdr -o bin/wordcount.out src/wordcount.cpp
+

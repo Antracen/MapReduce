@@ -10,4 +10,5 @@ using std::vector;
 using std::map;
 using std::string;
 
-void read_chunk(char *word, char *buf, uint64_t chunk_size, vector<map<string,uint64_t>> &buckets, int ranks);
+void read_chunk(char *word, char *buf, unsigned long int chunk_size, vector<map<string,unsigned long int>> &buckets, int ranks);
+
