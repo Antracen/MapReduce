@@ -11,13 +11,12 @@ using std::endl;
 using std::string;
 
 class Message {
-		public:
+	public:
+		unsigned long int count;
+		char word[WORD_SIZE];
 
-	unsigned long int count;
-	char word[WORD_SIZE];
-
-	Message(unsigned long int& c,const char *w): count(c) { strcpy(word,w); }
-	Message(){}
+		Message(unsigned long int& c,const char *w): count(c) { strcpy(word,w); }
+		Message(){}
 };
 
 void receive_words(map<string, unsigned long int> &bucket, int amount, MPI_Datatype &message_struct);
