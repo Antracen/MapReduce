@@ -21,7 +21,8 @@ void read_chunk(char* word, char *buf, unsigned long int chunk_size, vector<map<
         if(w != 0 && w < WORD_SIZE) {
             hash<string> hasher;
             int h = hasher(word) % ranks;
-            buckets[h][word] += 1;
+            #pragma omp critical
+			buckets[h][word] += 1;
         }
     }
 }

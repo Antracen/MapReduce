@@ -12,7 +12,7 @@ void receive_words(map<string, unsigned long int> &bucket, int amount, MPI_Datat
 	Message message;
     while(amount > 0) {			
         MPI_Recv(&message, 1, message_struct, MPI_ANY_SOURCE,MPI_ANY_TAG,MPI_COMM_WORLD,MPI_STATUS_IGNORE); // Get a count
-        bucket[message.word] += message.count;
+		bucket[message.word] += message.count;
         amount--; 
     }
 }
