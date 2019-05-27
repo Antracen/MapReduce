@@ -21,7 +21,7 @@ void read_chunk(char* word, char *buf, unsigned long int chunk_size, vector<map<
         if(w != 0 && w < WORD_SIZE) {
             hash<string> hasher;
             int h = hasher(word) % ranks;
-            buckets[h][word] = (buckets[h].count(word)) ? buckets[h][word] + 1 : 1;
+            buckets[h][word] += 1;
         }
     }
 }

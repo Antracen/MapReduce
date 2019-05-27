@@ -1,4 +1,5 @@
 // TODO:
+	// What about local reduction when having all_buckets? Merge to one instead? Atomic?
     // Free memory when not needed anymore
     // Do we need a more explicit "reduce" call?
     // Can we utilize OpenMP further?
