@@ -1,5 +1,5 @@
 // TODO
-    // Free memory when not needed anymore
+    // Free memory when not needed anymore AS SOON AS A VARIABLE IS NOT NEEDED IT SHOULD BE free:d / delete:d
     // Do we need a more explicit "reduce" call?
     // Can we utilize OpenMP further?
     // Can we utilize operations such as gather, alltoall, scatter etc?
