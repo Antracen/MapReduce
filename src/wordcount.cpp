@@ -1,5 +1,4 @@
 // TODO
-	// What about local reduction when having all_buckets? Merge to one instead? Atomic?
     // Free memory when not needed anymore
     // Do we need a more explicit "reduce" call?
     // Can we utilize OpenMP further?
@@ -9,6 +8,7 @@
     // Can we utilize padding?
 	// Should we have an unordered map?
 	// Make sure we free the memory allocated in Isend in the commhandler
+	// Check if the results are actually correct. They change between runs
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 
