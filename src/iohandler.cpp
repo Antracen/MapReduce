@@ -1,11 +1,12 @@
 #include "iohandler.h"
 
 using std::map;
+using std::unordered_map;
 using std::vector;
 using std::string;
 using std::hash;
 
-void read_chunk(char* word, char *buf, unsigned long int chunk_size, vector<map<string,unsigned long int>> &buckets, int ranks) {
+void read_chunk(char* word, char *buf, unsigned long int chunk_size, vector<unordered_map<string,unsigned long int>> &buckets, int ranks) {
     unsigned long int c = 0;
     while(c < chunk_size) {
         int w = 0;

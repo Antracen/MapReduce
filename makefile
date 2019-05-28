@@ -11,30 +11,24 @@ folder:
 	mkdir -p bin
 
 # LOCAL PART
-local: iohandler_local commhandler_local
-	$(CC_local) $(FLAGS_local) -o bin/wordcount.out bin/commhandler.o bin/iohandler.o src/wordcount.cpp
+local: iohandler_local
+	$(CC_local) $(FLAGS_local) -o bin/wordcount.out bin/iohandler.o src/wordcount.cpp
 
-debug_local: iohandler_local commhandler_local
-	$(CC_local) $(FLAGS_local) -D DEBUG -o bin/debug_wordcount.out bin/commhandler.o bin/iohandler.o src/wordcount.cpp
-
-commhandler_local: folder
-	$(CC_local) $(FLAGS_local) -o bin/commhandler.o -c src/commhandler.cpp
+debug_local: iohandler_local
+	$(CC_local) $(FLAGS_local) -D DEBUG -o bin/debug_wordcount.out bin/iohandler.o src/wordcount.cpp
 
 iohandler_local: folder
 	$(CC_local) $(FLAGS_local) -o bin/iohandler.o -c src/iohandler.cpp
 
 # BESKOW PART
-beskow: iohandler_beskow commhandler_beskow
-	$(CC_beskow) $(FLAGS_beskow) -o bin/wordcount.out bin/commhandler.o bin/iohandler.o src/wordcount.cpp
+beskow: iohandler_beskow
+	$(CC_beskow) $(FLAGS_beskow) -o bin/wordcount.out bin/iohandler.o src/wordcount.cpp
 
-debug_beskow: iohandler_beskow commhandler_beskow
+debug_beskow: iohandler_beskow
 	$(CC_beskow) $(FLAGS_beskow) -D DEBUG -o bin/debug_wordcount.out src/wordcount.cpp
 
 profile_beskow: folder
 	$(CC_beskow) $(FLAGS_beskow) -lmap-sampler --eh-frame-hdr -o bin/wordcount.out src/wordcount.cpp
-
-commhandler_beskow: folder
-	$(CC_beskow) $(FLAGS_beskow) -o bin/commhandler.o -c src/commhandler.cpp
 
 iohandler_beskow: folder
 	$(CC_beskow) $(FLAGS_beskow) -o bin/iohandler.o -c src/iohandler.cpp
