@@ -1,4 +1,4 @@
-// TODO
+// TODO:
     // Free memory when not needed anymore AS SOON AS A VARIABLE IS NOT NEEDED IT SHOULD BE free:d / delete:d
     // Do we need a more explicit "reduce" call?
     // Can we utilize OpenMP further?
@@ -8,7 +8,8 @@
     // Can we utilize padding?
 	// Should we have an unordered map?
 	// Make sure we free the memory allocated in Isend in the commhandler
-	// Check if the results are actually correct. They change between runs
+	// Check if the results are actually correct.
+    // char* word = (char*) malloc(buf_size); could maybe be changed so it only allocates WORD_SIZE*num_chunks_local or something
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 
@@ -84,7 +85,7 @@ int main(int argc, char *argv[]){
             int chunk = rank + i*ranks;
             MPI_File_read_at(f, chunk*CHUNK_SIZE, &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
             buf[i*(CHUNK_SIZE+1) + CHUNK_SIZE] = '\0';
-            read_chunk(word, &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, buckets, ranks);
+            read_chunk(&word[i*(CHUNK_SIZE+1)], &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, buckets, ranks);
         }
         #ifdef DEBUG
             cout << "Regular chunks done reading. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
@@ -108,7 +109,6 @@ int main(int argc, char *argv[]){
 
     /* Send the data to each owning process */
         // Calculate (1) how much to send to everyone and (2) how much I will receive
-        //int *receive_amount = new int[ranks]; // How much will I receive in total
         int amount;
 
         for(int i = 0; i < ranks; i++) {
@@ -135,10 +135,9 @@ int main(int argc, char *argv[]){
         int bucket_size = bucket.size();
 		int *bucket_sizes = new int[ranks];
 		int *displacements = new int[ranks];
-		#ifdef DEBUG
-			cout << "ALLOCATED ARRAYS" << endl;
-		#endif
+
 		MPI_Gather(&bucket_size, 1, MPI_INT, bucket_sizes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
 		int final_bucket_size = 0;
 		for(int i = 0; i < ranks; i++) final_bucket_size += bucket_sizes[i];
 		displacements[0] = 0;
@@ -148,11 +147,6 @@ int main(int argc, char *argv[]){
 		if(rank == 0) final_bucket_vector = new Message[final_bucket_size]; // Gather into this
 
 		Message *bucket_vector = new Message[bucket_size]; // Gather from this
-		 #ifdef DEBUG
-            cout << "ALLOCATED ARRAYS(2)" << endl;
-        #endif
-		
-
 		int i = 0;
 		for(auto &p : bucket) {
 			bucket_vector[i] = Message(p.second, p.first.c_str());
