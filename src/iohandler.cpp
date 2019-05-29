@@ -12,7 +12,7 @@ void read_chunk(char *word, char *buf, unsigned long int chunk_size, vector<unor
         int w = 0;
         while(!isalnum(buf[c]) && c < chunk_size) c++;
 
-        while(c < size && (isalnum(buf[c]) || buf[c] == '\'')) {
+        while(c < chunk_size && (isalnum(buf[c]) || buf[c] == '\'')) {
             word[w] = tolower(buf[c]);
             c++;
             w++;

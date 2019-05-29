@@ -1,0 +1,30 @@
+Regular chunks done reading. (rank: 1, time: 0.530376)
+Map phase done. (rank: 1, time: 0.530594)
+Allowed count. (rank: 1, count: 27)
+Regular chunks done reading. (rank: 2, time: 0.598426)
+Map phase done. (rank: 2, time: 0.598726)
+Allowed count. (rank: 2, count: 19)
+Regular chunks done reading. (rank: 0, time: 0.612049)
+Extra chunk done reading. (master, time: 0.61219)
+Map phase done. (rank: 0, time: 0.612337)
+Allowed count. (rank: 0, count: 18)
+Regular chunks done reading. (rank: 3, time: 0.620647)
+Map phase done. (rank: 3, time: 0.620877)
+Allowed count. (rank: 3, count: 21)
+Sent words. (rank: 1, time: 0.669925)
+Sent words. (rank: 2, time: 0.672938)
+Sent words. (rank: 0, time: 0.686035)
+Sent words. (rank: 3, time: 0.68873)
+Received all words. (rank: 0, time: 0.767394)
+ALLOCATED ARRAYS
+Received all words. (rank: 1, time: 0.808619)
+ALLOCATED ARRAYS
+ALLOCATED ARRAYS(2)
+Received all words. (rank: 3, time: 0.820246)
+ALLOCATED ARRAYS
+ALLOCATED ARRAYS(2)
+Received all words. (rank: 2, time: 0.831923)
+ALLOCATED ARRAYS
+ALLOCATED ARRAYS(2)
+ALLOCATED ARRAYS(2)
+Time excluding printing = 0.980657
