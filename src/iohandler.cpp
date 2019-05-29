@@ -6,8 +6,8 @@ using std::vector;
 using std::string;
 using std::hash;
 
-void read_chunk(char *word, char *buf, unsigned long int chunk_size, vector<unordered_map<string,unsigned long int>> &buckets, int ranks) {
-    unsigned long int c = 0;
+void read_chunk(char *word, char *buf, uint64_t chunk_size, vector<unordered_map<string,uint64_t>> &buckets, int ranks) {
+    uint64_t c = 0;
     while(c < chunk_size) {
         int w = 0;
         while(!isalnum(buf[c]) && c < chunk_size) c++;

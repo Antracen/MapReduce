@@ -3,7 +3,7 @@
 	// Do we need a more explicit "reduce" call?
 	// Can we utilize OpenMP further?
 	// Can we utilize operations such as gather, alltoall, scatter etc?
-	// Which variables should be unsigned long int?
+	// Which variables should be uint64_t?
 	// Can we use Ireduce?
 	// Can we utilize padding?
 	// Should we have an unordered map?
@@ -37,10 +37,10 @@ using std::max;
 
 class Message {
 	public:
-		unsigned long int count; // Should this be private?
+		uint64_t count; // Should this be private?
 		char word[WORD_SIZE]; // Should this be private?
 
-		Message(unsigned long int& c,const char *w): count(c) { strcpy(word,w); }
+		Message(uint64_t& c,const char *w): count(c) { strcpy(word,w); }
 		Message(){}
 		~Message(){}
 };
@@ -75,56 +75,52 @@ int main(int argc, char *argv[]){
 
 	/* Create Message struct */
 		MPI_Datatype message_struct;
-		MPI_Type_create_struct(2, new int[2] {1,WORD_SIZE}, new MPI_Aint[2]{0,sizeof(uint64_t)}, new MPI_Datatype[2]{MPI_UNSIGNED_LONG,MPI_CHAR}, &message_struct);
+		MPI_Type_create_struct(2, new int[2] {1,WORD_SIZE}, new MPI_Aint[2]{0,sizeof(uint64_t)}, new MPI_Datatype[2]{MPI_UINT64_T,MPI_CHAR}, &message_struct);
 		MPI_Type_commit(&message_struct);
 
 	/* Calculate what to read */
 		MPI_Offset file_size;
 		MPI_File_get_size(f, &file_size);
 
-		int num_chunks_total = file_size / CHUNK_SIZE;
-		int extra_chunk = file_size % CHUNK_SIZE;
-		int num_chunks_local = num_chunks_total / ranks + (num_chunks_total % ranks > rank);
-		int offset = 0;
-		for(int i = 0; i < rank; i++) offset += num_chunks_total / ranks + (num_chunks_total % ranks > i);
+		uint64_t num_chunks_total = file_size / CHUNK_SIZE;
+		uint64_t extra_chunk = (rank == ranks-1) * (file_size % CHUNK_SIZE);
+		uint64_t num_chunks_local = num_chunks_total / ranks + (rank < num_chunks_total % ranks);
 
 	/* Map the chunks into KV pairs */
-		vector<unordered_map<string, unsigned long int>> buckets(ranks);
+		vector<unordered_map<string, uint64_t>> buckets(ranks);
 
-		size_t buf_size = max(num_chunks_local*CHUNK_SIZE, extra_chunk);
+		uint64_t buf_size = 10*CHUNK_SIZE;
 		char* buf = new char[buf_size];
 		char* word = new char[buf_size];
 
-		MPI_Datatype chunk_type;
+		MPI_Datatype read_type, chunk_type;
 		MPI_Type_contiguous(CHUNK_SIZE, MPI_CHAR, &chunk_type);
+		MPI_Type_create_resized(chunk_type, 0, ranks*CHUNK_SIZE, &read_type);
 		MPI_Type_commit(&chunk_type);
+		MPI_Type_commit(&read_type);
 
-		MPI_Datatype sub;
-		MPI_Type_create_subarray(2, new int[2] {CHUNK_SIZE,num_chunks_total}, new int[2] {1,num_chunks_local}, new int[2] {0,offset}, MPI_ORDER_C, chunk_type, &sub);
-		MPI_Type_commit(&sub);
+		MPI_File_set_view(f, CHUNK_SIZE*rank, MPI_CHAR, read_type, "native", MPI_INFO_NULL);
 
-		MPI_File_set_view(f, 0, chunk_type, sub, "native", MPI_INFO_NULL);
-		MPI_File_read_all(f, buf, num_chunks_local, chunk_type, MPI_STATUS_IGNORE);
+		uint64_t chunks_left = num_chunks_local;
+		int chunks_to_read = 0;
+		uint64_t chunk_pos = 0;
 
-		cout << "READ FILE" << endl;
-
-		#pragma omp parallel for
-		for(int i = 0; i < num_chunks_local; i++) {
-			read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
+		while(chunks_left > 0) {
+			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
+			else chunks_to_read = chunks_left;
+			MPI_File_read_at(f, chunk_pos, buf, chunks_to_read*CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
+			#pragma omp parallel for
+			for(uint64_t i = 0; i < chunks_to_read; i++) {
+				read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
+			}
+			chunks_left -= chunks_to_read;
+			chunk_pos += CHUNK_SIZE*chunks_to_read;
 		}
 
-		#ifdef DEBUG
-			cout << "Regular chunks done reading. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
-		#endif
-
-		if(extra_chunk != 0 && rank == ranks-1) {
-			MPI_File_seek(f, -extra_chunk, file_size);
-			MPI_File_read(f, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
+		if(rank == ranks-1) {
+			MPI_File_read_at(f, num_chunks_local*CHUNK_SIZE, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
 			read_chunk(word, buf, extra_chunk, buckets, ranks);
 		}
-		#ifdef DEBUG
-			if(rank == 0) cout << "Extra chunk done reading. (master, time: " << (MPI_Wtime() - start_time) << ")" << endl;
-		#endif
 
 		delete[](buf);
 		delete[](word);
@@ -172,7 +168,7 @@ int main(int argc, char *argv[]){
 		delete[](send_displacements);
 		delete[](send_buckets);
 
-		map<string,unsigned long int> bucket; // All my words
+		map<string,uint64_t> bucket; // All my words
 		for(int i = 0; i < recv_amount; i++) bucket[rank_bucket[i].word] += rank_bucket[i].count;
 
 		delete[](rank_bucket);
@@ -205,7 +201,7 @@ int main(int argc, char *argv[]){
 		delete[](bucket_array);
 
 		if(rank == 0) {
-			map<string,unsigned long int> final_bucket;
+			map<string,uint64_t> final_bucket;
 			for(int i = 0; i < final_bucket_size; i++) final_bucket[final_bucket_array[i].word] = final_bucket_array[i].count;
 			delete[](final_bucket_array);
 
