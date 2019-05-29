@@ -94,33 +94,37 @@ int main(int argc, char *argv[]){
 		char* word = new char[buf_size];
 
 		MPI_Datatype read_type, chunk_type;
-		MPI_Type_contiguous(CHUNK_SIZE, MPI_CHAR, &chunk_type);
-		MPI_Type_create_resized(chunk_type, 0, ranks*CHUNK_SIZE, &read_type);
-		MPI_Type_commit(&chunk_type);
-		MPI_Type_commit(&read_type);
+        MPI_Type_contiguous(CHUNK_SIZE, MPI_CHAR, &chunk_type);
+        MPI_Type_create_resized(chunk_type, 0, CHUNK_SIZE*(ranks), &read_type);
+        MPI_Type_commit(&chunk_type);
+        MPI_Type_commit(&read_type);
 
-		MPI_File_set_view(f, CHUNK_SIZE*rank, chunk_type, read_type, "native", MPI_INFO_NULL);
+		uint64_t bigrank = rank;
+		uint64_t bigchunky = CHUNK_SIZE;
 
+		MPI_File_set_view(f, bigchunky*bigrank, chunk_type, chunk_type, "native", MPI_INFO_NULL);
+		cout << "SET VIEW " << rank << endl;
+        
 		uint64_t chunks_left = num_chunks_local;
-		int chunks_to_read = 0;
-		uint64_t chunk_pos = 0;
+        uint64_t chunks_to_read = 0;
+        uint64_t chunk_pos = rank;
 
-		while(chunks_left > 0) {
-			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
-			else chunks_to_read = chunks_left;
-			MPI_File_read_at(f, chunk_pos, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
-			#pragma omp parallel for
-			for(uint64_t i = 0; i < chunks_to_read; i++) {
-				read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
+        while(chunks_left > 0) {
+            if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
+            else chunks_to_read = chunks_left;
+            #pragma omp parallel for
+            for(uint64_t i = 0; i < chunks_to_read; i++) {
+				MPI_File_read_at(f, (chunk_pos + ranks*i), &buf[i*CHUNK_SIZE], 1, chunk_type, MPI_STATUS_IGNORE);
+                read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
 			}
-			chunks_left -= chunks_to_read;
-			chunk_pos += chunks_to_read;
-		}
+            chunks_left -= chunks_to_read;
+            chunk_pos += chunks_to_read*ranks;
+        }
 
-		if(rank == ranks-1) {
-			MPI_File_read_at(f, num_chunks_local, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
-			read_chunk(word, buf, extra_chunk, buckets, ranks);
-		}
+        if(extra_chunk) {
+            MPI_File_read_at(f, num_chunks_local, buf, 1, chunk_type, MPI_STATUS_IGNORE);
+            read_chunk(word, buf, extra_chunk, buckets, ranks);
+        }
 
 		delete[](buf);
 		delete[](word);
