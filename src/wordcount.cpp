@@ -11,6 +11,7 @@
 	// Check if the results are actually correct.
 	// char* word = (char*) malloc(buf_size); could maybe be changed so it only allocates WORD_SIZE*num_chunks_local or something
 	// When we send function(new int[2] {2,1}) does the array get deleted afterwards?
+
 #define TOO_FEW_ARGUMENTS 007
 #define NONEXISTENT_FILE 1919
 
@@ -83,38 +84,50 @@ int main(int argc, char *argv[]){
 
 		int num_chunks_total = file_size / CHUNK_SIZE;
 		int extra_chunk = file_size % CHUNK_SIZE;
-		int num_chunks_local = num_chunks_total / ranks;
-		if(num_chunks_total % ranks > rank) num_chunks_local++;
+		int num_chunks_local = num_chunks_total / ranks + (num_chunks_total % ranks > rank);
+		int offset = 0;
+		for(int i = 0; i < rank; i++) offset += num_chunks_total / ranks + (num_chunks_total % ranks > i);
 
 	/* Map the chunks into KV pairs */
 		vector<unordered_map<string, unsigned long int>> buckets(ranks);
 
-		size_t buf_size = max((CHUNK_SIZE+1)*num_chunks_local, extra_chunk + 1);
-		char* buf = (char*) malloc(buf_size);
-		char* word = (char*) malloc(buf_size);
+		size_t buf_size = max(num_chunks_local*CHUNK_SIZE, extra_chunk);
+		char* buf = new char[buf_size];
+		char* word = new char[buf_size];
+
+		MPI_Datatype chunk_type;
+		MPI_Type_contiguous(CHUNK_SIZE, MPI_CHAR, &chunk_type);
+		MPI_Type_commit(&chunk_type);
+
+		MPI_Datatype sub;
+		MPI_Type_create_subarray(2, new int[2] {CHUNK_SIZE,num_chunks_total}, new int[2] {1,num_chunks_local}, new int[2] {0,offset}, MPI_ORDER_C, chunk_type, &sub);
+		MPI_Type_commit(&sub);
+
+		MPI_File_set_view(f, 0, chunk_type, sub, "native", MPI_INFO_NULL);
+		MPI_File_read_all(f, buf, num_chunks_local, chunk_type, MPI_STATUS_IGNORE);
+
+		cout << "READ FILE" << endl;
 
 		#pragma omp parallel for
 		for(int i = 0; i < num_chunks_local; i++) {
-			int chunk = rank + i*ranks;
-			MPI_File_read_at(f, chunk*CHUNK_SIZE, &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, MPI_CHAR, MPI_STATUS_IGNORE);
-			buf[i*(CHUNK_SIZE+1) + CHUNK_SIZE] = '\0';
-			read_chunk(&word[i*(CHUNK_SIZE+1)], &buf[i*(CHUNK_SIZE+1)], CHUNK_SIZE, buckets, ranks);
+			read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
 		}
+
 		#ifdef DEBUG
 			cout << "Regular chunks done reading. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
 		#endif
 
-		if(extra_chunk != 0 && rank == 0) {
-			MPI_File_read_at(f, file_size - extra_chunk, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
-			buf[extra_chunk] = '\0';
+		if(extra_chunk != 0 && rank == ranks-1) {
+			MPI_File_seek(f, -extra_chunk, file_size);
+			MPI_File_read(f, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
 			read_chunk(word, buf, extra_chunk, buckets, ranks);
 		}
 		#ifdef DEBUG
 			if(rank == 0) cout << "Extra chunk done reading. (master, time: " << (MPI_Wtime() - start_time) << ")" << endl;
 		#endif
 
-		free(buf);
-		free(word);
+		delete[](buf);
+		delete[](word);
 
 		#ifdef DEBUG
 			cout << "Map phase done. (rank: " << rank << ", time: " << (MPI_Wtime() - start_time) << ")" << endl;
@@ -220,5 +233,6 @@ int main(int argc, char *argv[]){
 		}
 
 	/* Free memory and finalize */
+		MPI_File_close(&f);
 		MPI_Finalize();
 }
