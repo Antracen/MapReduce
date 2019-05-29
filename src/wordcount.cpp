@@ -51,6 +51,7 @@ int main(int argc, char *argv[]){
 		double start_time = MPI_Wtime();
 		int res;
 		char *filename;
+		uint64_t chunk_size = CHUNK_SIZE;
 
 	/* Parse command line arguments */
 		if(argc < 2) {
@@ -63,6 +64,8 @@ int main(int argc, char *argv[]){
 		int rank, ranks;
 		MPI_Comm_rank(MPI_COMM_WORLD,&rank);
 		MPI_Comm_size(MPI_COMM_WORLD,&ranks);
+		uint64_t bigrank = rank;
+		uint64_t bigranks = ranks;
 
 	/* Open file */
 		MPI_File f;
@@ -82,47 +85,45 @@ int main(int argc, char *argv[]){
 		MPI_Offset file_size;
 		MPI_File_get_size(f, &file_size);
 
-		uint64_t num_chunks_total = file_size / CHUNK_SIZE;
-		uint64_t extra_chunk = (rank == ranks-1) * (file_size % CHUNK_SIZE);
-		uint64_t num_chunks_local = num_chunks_total / ranks + (rank < num_chunks_total % ranks);
+		uint64_t num_chunks_total = file_size / chunk_size;
+		uint64_t extra_chunk = (rank == ranks-1) * (file_size % chunk_size);
+		uint64_t num_chunks_local = num_chunks_total / bigranks + (bigrank < num_chunks_total % bigranks);
 
 	/* Map the chunks into KV pairs */
 		vector<unordered_map<string, uint64_t>> buckets(ranks);
 
-		uint64_t buf_size = MAX_CONCURRENT_CHUNKS*CHUNK_SIZE;
+		uint64_t buf_size = MAX_CONCURRENT_CHUNKS*chunk_size;
 		char* buf = new char[buf_size];
 		char* word = new char[buf_size];
 
 		MPI_Datatype read_type, chunk_type;
-        MPI_Type_contiguous(CHUNK_SIZE, MPI_CHAR, &chunk_type);
-        MPI_Type_create_resized(chunk_type, 0, CHUNK_SIZE*(ranks), &read_type);
+        MPI_Type_contiguous(chunk_size, MPI_CHAR, &chunk_type);
+        MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
         MPI_Type_commit(&chunk_type);
         MPI_Type_commit(&read_type);
 
-		uint64_t bigrank = rank;
-		uint64_t bigchunky = CHUNK_SIZE;
-
-		MPI_File_set_view(f, bigchunky*bigrank, chunk_type, chunk_type, "native", MPI_INFO_NULL);
-		cout << "SET VIEW " << rank << endl;
+		MPI_File_set_view(f, chunk_size*bigrank, chunk_type, read_type, "native", MPI_INFO_NULL);
         
 		uint64_t chunks_left = num_chunks_local;
         uint64_t chunks_to_read = 0;
-        uint64_t chunk_pos = rank;
+        uint64_t chunk_pos = 0;
 
         while(chunks_left > 0) {
             if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
             else chunks_to_read = chunks_left;
+			MPI_File_read_at(f, chunk_pos, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
             #pragma omp parallel for
             for(uint64_t i = 0; i < chunks_to_read; i++) {
-				MPI_File_read_at(f, (chunk_pos + ranks*i), &buf[i*CHUNK_SIZE], 1, chunk_type, MPI_STATUS_IGNORE);
-                read_chunk(&word[i*CHUNK_SIZE], &buf[i*CHUNK_SIZE], CHUNK_SIZE, buckets, ranks);
+                read_chunk(&word[i*chunk_size], &buf[i*chunk_size], chunk_size, buckets, ranks);
 			}
             chunks_left -= chunks_to_read;
-            chunk_pos += chunks_to_read*ranks;
+            chunk_pos += chunks_to_read;
         }
 
+		MPI_File_set_view(f, 0, MPI_CHAR, MPI_CHAR, "native", MPI_INFO_NULL);
+
         if(extra_chunk) {
-            MPI_File_read_at(f, num_chunks_local, buf, 1, chunk_type, MPI_STATUS_IGNORE);
+            MPI_File_read_at(f, num_chunks_total*chunk_size, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
             read_chunk(word, buf, extra_chunk, buckets, ranks);
         }
 
