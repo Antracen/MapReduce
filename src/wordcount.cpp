@@ -53,7 +53,6 @@ int main(int argc, char *argv[]){
 		MPI_Init(&argc,&argv);
 		double start_time = MPI_Wtime();
 		int res;
-		char *infile, *outfile;
 		ofstream ofs; 
 		uint64_t chunk_size = CHUNK_SIZE;
 
@@ -62,9 +61,8 @@ int main(int argc, char *argv[]){
 			cout << "Too few arguments. Aborting." << endl;
 			MPI_Abort(MPI_COMM_WORLD, TOO_FEW_ARGUMENTS);
 		} else {
-			infile = argv[1];
-			outfile = argv[2];
-			ofs.open(outfile, std::ofstream::out); 
+			ofs.open(argv[2], std::ofstream::out);
+			cout.rdbuf(ofs.rdbuf());  
 		}
 
 	/* Get rank info */
@@ -76,7 +74,7 @@ int main(int argc, char *argv[]){
 
 	/* Open file */
 		MPI_File f;
-		res = MPI_File_open(MPI_COMM_WORLD, infile, MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
+		res = MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 
 		if(res) {
 			cout << "File does not exist. Aborting." << endl;
@@ -225,14 +223,17 @@ int main(int argc, char *argv[]){
 					vector<pair<string,int>> wordsToSort;
 					for(auto &p : final_bucket) wordsToSort.emplace_back(p.first,p.second);
 					sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second;});
-					for(auto &p : wordsToSort) ofs << "(" << p.first << "," << p.second << ")" << endl;
+					for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl;
 				#else
-					for(auto &p : final_bucket) ofs << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
+					for(auto &p : final_bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
 				#endif
 			#endif
-			ofs << "Time excluding printing = " << (end_time-start_time) << endl;
-			ofs << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
-		}
+			cout << "Time excluding printing = " << (end_time-start_time) << endl;
+			
+			#ifndef DEBUG 
+				cout << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
+			#endif
+			}
 
 	/* Free memory and finalize */
 		MPI_File_close(&f);
