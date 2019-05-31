@@ -18,6 +18,7 @@
 #include "iohandler.h"
 
 #include <mpi.h>
+#include <fstream>
 #include <iostream>
 #include <vector>
 #include <map>
@@ -34,6 +35,8 @@ using std::vector;
 using std::pair;
 using std::hash;
 using std::max;
+using std::ofstream;
+using std::streambuf;
 
 class Message {
 	public:
@@ -50,15 +53,17 @@ int main(int argc, char *argv[]){
 		MPI_Init(&argc,&argv);
 		double start_time = MPI_Wtime();
 		int res;
-		char *filename;
+		ofstream ofs; 
 		uint64_t chunk_size = CHUNK_SIZE;
 
 	/* Parse command line arguments */
-		if(argc < 2) {
+		if(argc < 3) {
 			cout << "Too few arguments. Aborting." << endl;
 			MPI_Abort(MPI_COMM_WORLD, TOO_FEW_ARGUMENTS);
+		} else {
+			ofs.open(argv[2], std::ofstream::out);
+			cout.rdbuf(ofs.rdbuf());  
 		}
-		else filename = argv[1];
 
 	/* Get rank info */
 		int rank, ranks;
@@ -69,7 +74,7 @@ int main(int argc, char *argv[]){
 
 	/* Open file */
 		MPI_File f;
-		res = MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
+		res = MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 
 		if(res) {
 			cout << "File does not exist. Aborting." << endl;
@@ -219,21 +224,19 @@ int main(int argc, char *argv[]){
 					for(auto &p : final_bucket) wordsToSort.emplace_back(p.first,p.second);
 					sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second;});
 					for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl;
-					double time = MPI_Wtime() - start_time;
-					cout << "Time: " << time << endl;
 				#else
 					for(auto &p : final_bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
-					double time = MPI_Wtime() - start_time;
-					cout << "Time: " << time << endl;
 				#endif
 			#endif
 			cout << "Time excluding printing = " << (end_time-start_time) << endl;
-			#ifndef DEBUG											      	
+			
+			#ifndef DEBUG 
 				cout << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
-			#endif												     
-		}
+			#endif
+			}
 
 	/* Free memory and finalize */
 		MPI_File_close(&f);
+		ofs.close();
 		MPI_Finalize();
 }
