@@ -3,7 +3,7 @@
 #SBATCH -J FINAL_COUNTDOWN
 #SBATCH -t 00:15:00
 #SBATCH -A edu19.DD2356
-#SBATCH --nodes=5
+#SBATCH --nodes=3
 #SBATCH -e error_file.e
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sorme,mawass

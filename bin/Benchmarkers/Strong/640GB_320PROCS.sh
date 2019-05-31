@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#SBATCH -J FINAL_COUNTDOWN
+#SBATCH -J STRING_COUNTDOWN
 #SBATCH -t 00:15:00
 #SBATCH -A edu19.DD2356
-#SBATCH --nodes=4
+#SBATCH --nodes=10
 #SBATCH -e error_file.e
 #SBATCH --mail-type=END
 #SBATCH --mail-user=sorme,mawass
