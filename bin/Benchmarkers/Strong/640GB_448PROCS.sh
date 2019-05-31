@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J STRING_COUNTDOWN
-#SBATCH -t 00:40:00
+#SBATCH -t 00:15:00
 #SBATCH -A edu19.DD2356
 #SBATCH --nodes=14
 #SBATCH -e error_file.e
