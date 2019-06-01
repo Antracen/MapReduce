@@ -104,16 +104,16 @@ int main(int argc, char *argv[]){
 		char* word = new char[word_buf_size];
 
 		MPI_Datatype read_type, chunk_type;
-        MPI_Type_contiguous(chunk_size, MPI_CHAR, &chunk_type);
-        MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
-        MPI_Type_commit(&chunk_type);
-        MPI_Type_commit(&read_type);
+		MPI_Type_contiguous(chunk_size, MPI_CHAR, &chunk_type);
+		MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
+		MPI_Type_commit(&chunk_type);
+		MPI_Type_commit(&read_type);
 
 		MPI_File_set_view(f, chunk_size*bigrank, chunk_type, read_type, "native", MPI_INFO_NULL);
-        
+
 		uint64_t chunks_left = num_chunks_local;
-        uint64_t chunks_to_read = 0;
-        uint64_t chunk_pos = 0;
+		uint64_t chunks_to_read = 0;
+		uint64_t chunk_pos = 0;
 
 		while(chunks_left > 0) {
 			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
@@ -127,10 +127,10 @@ int main(int argc, char *argv[]){
             chunk_pos += chunks_to_read;
 		}
 
-        if(extra_chunk) {
-            MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
-            read_chunk(word, buf, chunk_size, buckets, ranks);
-        }
+		if(extra_chunk) {
+			MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
+			read_chunk(word, buf, chunk_size, buckets, ranks);
+		}
 
 		if(extra_bytes > 0) {
 			MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
