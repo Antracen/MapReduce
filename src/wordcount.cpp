@@ -178,7 +178,7 @@ int main(int argc, char *argv[]){
 		delete[](send_displacements);
 		delete[](send_buckets);
 
-		map<string,uint64_t> bucket; // All my words
+		unordered_map<string,uint64_t> bucket; // All my words
 		for(int i = 0; i < recv_amount; i++) bucket[rank_bucket[i].word] += rank_bucket[i].count;
 
 		delete[](rank_bucket);
