@@ -128,7 +128,7 @@ int main(int argc, char *argv[]){
 				read_chunk(&word[i*(word_size+1)], &buf[i*chunk_size], chunk_size, buckets, ranks);
 			}
 			chunks_left -= chunks_to_read;
-            chunk_pos += chunks_to_read;
+			chunk_pos += chunks_to_read;
 		}
 
 		if(extra_chunk) {
