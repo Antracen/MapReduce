@@ -27,8 +27,8 @@ beskow: iohandler_beskow
 debug_beskow: iohandler_beskow
 	$(CC_beskow) $(FLAGS_beskow) -D DEBUG -o bin/debug_wordcount.out src/wordcount.cpp
 
-profile_beskow: folder
-	$(CC_beskow) $(FLAGS_beskow) -lmap-sampler --eh-frame-hdr -o bin/wordcount.out src/wordcount.cpp
+profile_beskow: iohandler_beskow
+	$(CC_beskow) $(FLAGS_beskow) -lmap-sampler -o bin/wordcount.out bin/iohandler.o src/wordcount.cpp
 
 iohandler_beskow: folder
 	$(CC_beskow) $(FLAGS_beskow) -o bin/iohandler.o -c src/iohandler.cpp

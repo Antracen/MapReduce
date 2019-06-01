@@ -62,8 +62,6 @@ int main(int argc, char *argv[]){
 		if(argc < 3) {
 			cout << "Too few arguments. Aborting." << endl;
 			MPI_Abort(MPI_COMM_WORLD, TOO_FEW_ARGUMENTS);
-		} else if(rank == 0) {
-			ofs.open(argv[2], std::ofstream::out);
 		}
 
 	/* Get rank info */
@@ -74,6 +72,7 @@ int main(int argc, char *argv[]){
 		uint64_t bigranks = ranks;
 
 	/* Open file */
+		if(rank == 0) ofs.open(argv[2], std::ofstream::out);
 		MPI_File f;
 		res = MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 
