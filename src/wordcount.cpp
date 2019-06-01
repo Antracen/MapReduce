@@ -95,6 +95,10 @@ int main(int argc, char *argv[]){
 		uint64_t extra_chunk = (bigrank < num_chunks_total % bigranks);
 		uint64_t extra_bytes = (rank == ranks-1) * (file_size % chunk_size);
 
+		#ifdef DEBUG
+			cout << "RANK " << rank << " will read number of chunks: " << num_chunks_local << endl;
+		#endif
+
 	/* Map the chunks into KV pairs */
 		vector<unordered_map<string, uint64_t>> buckets(ranks);
 
