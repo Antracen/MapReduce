@@ -152,23 +152,23 @@ int main(int argc, char *argv[]){
 		int *amounts = new int[ranks]; // How much I receive from every process
 		int *local_amounts = new int[ranks]; // How much I send to every process
 		int send_amount; // How many messages will I send in total?
+		for(int i = 0; i < ranks; i++) local_amounts[i] = buckets[i].size();
+		MPI_Request r; 
+		MPI_Ialltoall(local_amounts,1,MPI_INT,amounts,1,MPI_INT,MPI_COMM_WORLD,&r);
+
 		int recv_amount = 0;
 		int *send_displacements = new int[ranks];
 		send_displacements[0] = 0;
-		local_amounts[0] = buckets[0].size();
 		send_amount = local_amounts[0];
 		for(int i = 1; i < ranks; i++) {
-			local_amounts[i] = buckets[i].size();
+			//local_amounts[i] = buckets[i].size();
 			send_amount += local_amounts[i];
 			send_displacements[i] = send_displacements[i-1] + local_amounts[i-1];
 		}
 
-		MPI_Alltoall(local_amounts, 1, MPI_INT, amounts, 1, MPI_INT, MPI_COMM_WORLD);
-		for(int i = 0; i < ranks; i++) recv_amount += amounts[i];
-
-		Message *rank_bucket = new Message[recv_amount]; // Gather into this
+		//MPI_Alltoall(local_amounts, 1, MPI_INT, amounts, 1, MPI_INT, MPI_COMM_WORLD);
+		
 		Message *send_buckets = new Message[send_amount];
-
 		int j = 0;
 		for(int i = 0; i < ranks; i++) {
 			for(auto &p : buckets[i]) {
@@ -179,6 +179,12 @@ int main(int argc, char *argv[]){
 
 		int *recv_displacements = new int[ranks];
 		recv_displacements[0] = 0;
+
+		
+		MPI_Wait(&r,MPI_STATUS_IGNORE); 
+		for(int i = 0; i < ranks; i++) recv_amount += amounts[i];
+		Message *rank_bucket = new Message[recv_amount]; // Gather into this
+
 		for(int i = 1; i < ranks; i++) recv_displacements[i] = recv_displacements[i-1] + amounts[i-1];
 
 		MPI_Alltoallv(send_buckets, local_amounts, send_displacements, message_struct, rank_bucket, amounts, recv_displacements, message_struct, MPI_COMM_WORLD);
