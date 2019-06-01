@@ -55,14 +55,15 @@ int main(int argc, char *argv[]){
 		int res;
 		ofstream ofs; 
 		uint64_t chunk_size = CHUNK_SIZE;
+		uint64_t word_size = WORD_SIZE;
+		uint64_t max_concurrent_chunks = MAX_CONCURRENT_CHUNKS;
 
 	/* Parse command line arguments */
 		if(argc < 3) {
 			cout << "Too few arguments. Aborting." << endl;
 			MPI_Abort(MPI_COMM_WORLD, TOO_FEW_ARGUMENTS);
-		} else {
+		} else if(rank == 0) {
 			ofs.open(argv[2], std::ofstream::out);
-			cout.rdbuf(ofs.rdbuf());  
 		}
 
 	/* Get rank info */
@@ -91,15 +92,17 @@ int main(int argc, char *argv[]){
 		MPI_File_get_size(f, &file_size);
 
 		uint64_t num_chunks_total = file_size / chunk_size;
-		uint64_t extra_chunk = (rank == ranks-1) * (file_size % chunk_size);
-		uint64_t num_chunks_local = num_chunks_total / bigranks + (bigrank < num_chunks_total % bigranks);
+		uint64_t num_chunks_local = num_chunks_total / bigranks;
+		uint64_t extra_chunk = (bigrank < num_chunks_total % bigranks);
+		uint64_t extra_bytes = (rank == ranks-1) * (file_size % chunk_size);
 
 	/* Map the chunks into KV pairs */
 		vector<unordered_map<string, uint64_t>> buckets(ranks);
 
-		uint64_t buf_size = MAX_CONCURRENT_CHUNKS*chunk_size;
+		uint64_t buf_size = chunk_size*max_concurrent_chunks;
+		uint64_t word_buf_size = (word_size + 1)*max_concurrent_chunks;
 		char* buf = new char[buf_size];
-		char* word = new char[buf_size];
+		char* word = new char[word_buf_size];
 
 		MPI_Datatype read_type, chunk_type;
         MPI_Type_contiguous(chunk_size, MPI_CHAR, &chunk_type);
@@ -113,24 +116,27 @@ int main(int argc, char *argv[]){
         uint64_t chunks_to_read = 0;
         uint64_t chunk_pos = 0;
 
-        while(chunks_left > 0) {
-            if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
+		while(chunks_left > 0) {
+			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
             else chunks_to_read = chunks_left;
-			MPI_File_read_at(f, chunk_pos, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
-            #pragma omp parallel for
-            for(uint64_t i = 0; i < chunks_to_read; i++) {
-                read_chunk(&word[i*chunk_size], &buf[i*chunk_size], chunk_size, buckets, ranks);
+			MPI_File_read_all(f, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
+			#pragma omp parallel for
+			for(uint64_t i = 0; i < chunks_to_read; i++) {
+				read_chunk(&word[i*(word_size+1)], &buf[i*chunk_size], chunk_size, buckets, ranks);
 			}
-            chunks_left -= chunks_to_read;
+			chunks_left -= chunks_to_read;
             chunk_pos += chunks_to_read;
-        }
-
-		MPI_File_set_view(f, 0, MPI_CHAR, MPI_CHAR, "native", MPI_INFO_NULL);
+		}
 
         if(extra_chunk) {
-            MPI_File_read_at(f, num_chunks_total*chunk_size, buf, extra_chunk, MPI_CHAR, MPI_STATUS_IGNORE);
-            read_chunk(word, buf, extra_chunk, buckets, ranks);
+            MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
+            read_chunk(word, buf, chunk_size, buckets, ranks);
         }
+
+		if(extra_bytes > 0) {
+			MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
+            read_chunk(word, buf, extra_chunk, buckets, ranks);
+		}
 
 		delete[](buf);
 		delete[](word);
@@ -223,20 +229,20 @@ int main(int argc, char *argv[]){
 					vector<pair<string,int>> wordsToSort;
 					for(auto &p : final_bucket) wordsToSort.emplace_back(p.first,p.second);
 					sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second;});
-					for(auto &p : wordsToSort) cout << "(" << p.first << "," << p.second << ")" << endl;
+					for(auto &p : wordsToSort) ofs << "(" << p.first << "," << p.second << ")" << endl;
 				#else
-					for(auto &p : final_bucket) cout << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
+					for(auto &p : final_bucket) ofs << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
 				#endif
 			#endif
-			cout << "Time excluding printing = " << (end_time-start_time) << endl;
+			ofs << "Time excluding printing = " << (end_time-start_time) << endl;
 			
 			#ifndef DEBUG 
-				cout << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
+				ofs << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
 			#endif
-			}
+		}
 
 	/* Free memory and finalize */
 		MPI_File_close(&f);
-		ofs.close();
+		if(rank == 0) ofs.close();
 		MPI_Finalize();
 }

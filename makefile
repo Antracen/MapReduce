@@ -1,7 +1,7 @@
 CC_local=mpiCC
 CC_beskow=CC
 
-FLAGS_local = -std=c++11 -g -Wall -pedantic -fopenmp -D WORD_SIZE=300 -D CHUNK_SIZE=65536 -D MAX_CONCURRENT_CHUNKS=10
+FLAGS_local = -std=c++11 -g -Wall -pedantic -fopenmp -D WORD_SIZE=300 -D CHUNK_SIZE=6000 -D MAX_CONCURRENT_CHUNKS=10
 FLAGS_beskow = -std=c++11 -g -Wall -pedantic -fopenmp -D WORD_SIZE=300 -D CHUNK_SIZE=67108864 -D MAX_CONCURRENT_CHUNKS=10
 
 clean:
