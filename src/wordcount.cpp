@@ -121,7 +121,7 @@ int main(int argc, char *argv[]){
 
 		while(chunks_left > 0) {
 			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
-            else chunks_to_read = chunks_left;
+			else chunks_to_read = chunks_left;
 			MPI_File_read_all(f, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
 			#pragma omp parallel for
 			for(uint64_t i = 0; i < chunks_to_read; i++) {
@@ -161,13 +161,10 @@ int main(int argc, char *argv[]){
 		send_displacements[0] = 0;
 		send_amount = local_amounts[0];
 		for(int i = 1; i < ranks; i++) {
-			//local_amounts[i] = buckets[i].size();
 			send_amount += local_amounts[i];
 			send_displacements[i] = send_displacements[i-1] + local_amounts[i-1];
 		}
 
-		//MPI_Alltoall(local_amounts, 1, MPI_INT, amounts, 1, MPI_INT, MPI_COMM_WORLD);
-		
 		Message *send_buckets = new Message[send_amount];
 		int j = 0;
 		for(int i = 0; i < ranks; i++) {
