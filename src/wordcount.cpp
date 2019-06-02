@@ -1,15 +1,10 @@
 // TODO:
-	// Free memory when not needed anymore AS SOON AS A VARIABLE IS NOT NEEDED IT SHOULD BE free:d / delete:d
 	// Do we need a more explicit "reduce" call?
 	// Can we utilize OpenMP further?
-	// Can we utilize operations such as gather, alltoall, scatter etc?
 	// Which variables should be uint64_t?
 	// Can we use Ireduce?
 	// Can we utilize padding?
-	// Should we have an unordered map?
-	// Make sure we free the memory allocated in Isend in the commhandler
 	// Check if the results are actually correct.
-	// char* word = (char*) malloc(buf_size); could maybe be changed so it only allocates WORD_SIZE*num_chunks_local or something
 	// When we send function(new int[2] {2,1}) does the array get deleted afterwards?
 
 #define TOO_FEW_ARGUMENTS 007
@@ -117,7 +112,6 @@ int main(int argc, char *argv[]){
 
 		uint64_t chunks_left = num_chunks_local;
 		uint64_t chunks_to_read = 0;
-		uint64_t chunk_pos = 0;
 
 		while(chunks_left > 0) {
 			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
@@ -128,7 +122,6 @@ int main(int argc, char *argv[]){
 				read_chunk(&word[i*(word_size+1)], &buf[i*chunk_size], chunk_size, buckets, ranks);
 			}
 			chunks_left -= chunks_to_read;
-			chunk_pos += chunks_to_read;
 		}
 
 		if(extra_chunk) {
