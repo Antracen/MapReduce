@@ -138,7 +138,7 @@ int main(int argc, char *argv[]){
 
 		if(extra_bytes > 0) {
 			MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
-            read_chunk(word, buf, extra_chunk, buckets, ranks);
+            read_chunk(word, buf, extra_bytes, buckets, ranks);
 		}
 
 		delete[](buf);
