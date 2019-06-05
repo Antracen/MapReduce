@@ -34,13 +34,16 @@ using std::ofstream;
 using std::streambuf;
 
 class Message {
-	public:
-		uint64_t count; // Should this be private?
-		char word[WORD_SIZE]; // Should this be private?
+	private:
+		uint64_t count;
+		char word[WORD_SIZE]; 
 
+	public:
 		Message(uint64_t& c,const char *w): count(c) { strcpy(word,w); }
 		Message(){}
 		~Message(){}
+		uint64_t getCount() { return count; }
+		char* getWord(){return word; }
 };
 
 int main(int argc, char *argv[]){
@@ -114,7 +117,7 @@ int main(int argc, char *argv[]){
 		uint64_t chunks_to_read = 0;
 
 		while(chunks_left > 0) {
-			if(chunks_left >= MAX_CONCURRENT_CHUNKS) chunks_to_read = MAX_CONCURRENT_CHUNKS;
+			if(chunks_left >= max_concurrent_chunks) chunks_to_read = max_concurrent_chunks;
 			else chunks_to_read = chunks_left;
 			MPI_File_read_all(f, buf, chunks_to_read, chunk_type, MPI_STATUS_IGNORE);
 			#pragma omp parallel for
@@ -184,7 +187,7 @@ int main(int argc, char *argv[]){
 		delete[](send_buckets);
 
 		unordered_map<string,uint64_t> bucket; // All my words
-		for(int i = 0; i < recv_amount; i++) bucket[rank_bucket[i].word] += rank_bucket[i].count;
+		for(int i = 0; i < recv_amount; i++) bucket[rank_bucket[i].getWord()] += rank_bucket[i].getCount();
 
 		delete[](rank_bucket);
 
@@ -217,7 +220,7 @@ int main(int argc, char *argv[]){
 
 		if(rank == 0) {
 			map<string,uint64_t> final_bucket;
-			for(int i = 0; i < final_bucket_size; i++) final_bucket[final_bucket_array[i].word] = final_bucket_array[i].count;
+			for(int i = 0; i < final_bucket_size; i++) final_bucket[final_bucket_array[i].getWord()] = final_bucket_array[i].getCount();
 			delete[](final_bucket_array);
 
 			double end_time = MPI_Wtime();
