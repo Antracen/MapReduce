@@ -107,8 +107,8 @@ int main(int argc, char *argv[]){
 
 		MPI_Datatype read_type, chunk_type;
 		MPI_Type_contiguous(chunk_size, MPI_CHAR, &chunk_type);
-		MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
 		MPI_Type_commit(&chunk_type);
+		MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
 		MPI_Type_commit(&read_type);
 
 		MPI_File_set_view(f, chunk_size*bigrank, chunk_type, read_type, "native", MPI_INFO_NULL);
