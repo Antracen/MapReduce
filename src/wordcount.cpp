@@ -91,7 +91,8 @@ int main(int argc, char *argv[]){
 		uint64_t num_chunks_total = file_size / chunk_size;
 		uint64_t num_chunks_local = num_chunks_total / bigranks;
 		uint64_t extra_chunk = (bigrank < num_chunks_total % bigranks);
-		uint64_t extra_bytes = (rank == ranks-1) * (file_size % chunk_size);
+		uint64_t last_bytes_reader = (num_chunks_total % bigranks);
+		uint64_t extra_bytes = (bigrank == last_bytes_reader) * (file_size % chunk_size);
 
 		#ifdef DEBUG
 			cout << "RANK " << rank << " will read number of chunks: " << num_chunks_local << endl;
@@ -111,7 +112,7 @@ int main(int argc, char *argv[]){
 		MPI_Type_create_resized(chunk_type, 0, chunk_size*bigranks, &read_type);
 		MPI_Type_commit(&read_type);
 
-		MPI_File_set_view(f, chunk_size*bigrank, chunk_type, read_type, "native", MPI_INFO_NULL);
+		MPI_File_set_view(f, chunk_size*bigrank, MPI_CHAR, read_type, "native", MPI_INFO_NULL);
 
 		uint64_t chunks_left = num_chunks_local;
 		uint64_t chunks_to_read = 0;
@@ -133,8 +134,8 @@ int main(int argc, char *argv[]){
 		}
 
 		if(extra_bytes > 0) {
-			MPI_File_read(f, buf, 1, chunk_type, MPI_STATUS_IGNORE);
-            read_chunk(word, buf, extra_bytes, buckets, ranks);
+			MPI_File_read(f, buf, extra_bytes, MPI_CHAR, MPI_STATUS_IGNORE);
+			read_chunk(word, buf, extra_bytes, buckets, ranks);
 		}
 
 		delete[](buf);
