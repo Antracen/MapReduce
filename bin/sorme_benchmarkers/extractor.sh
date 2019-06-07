@@ -19,5 +19,11 @@ do
     echo -n ","
     echo $filename | grep -Poi "procs_\K\d+" | tr -d '\n'
     echo -n ","
-    tail -n 2 $filename | grep -Poi "Time including printing = \K\d+.\d+"
+    tail -n 2 $filename | grep -Poi "Time including printing = \K\d+.\d+" | tr -d '\n'
+	echo ""
 done
+
+#for filename in ../../Results/*
+#do
+#	tail -n 2 $filename
+#done
