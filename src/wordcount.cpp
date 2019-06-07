@@ -30,7 +30,6 @@ using std::vector;
 using std::pair;
 using std::hash;
 using std::max;
-using std::ofstream;
 using std::streambuf;
 
 class Message {
@@ -51,7 +50,6 @@ int main(int argc, char *argv[]){
 		MPI_Init(&argc,&argv);
 		double start_time = MPI_Wtime();
 		int res;
-		ofstream ofs; 
 		uint64_t chunk_size = CHUNK_SIZE;
 		uint64_t word_size = WORD_SIZE;
 		uint64_t max_concurrent_chunks = MAX_CONCURRENT_CHUNKS;
@@ -70,7 +68,8 @@ int main(int argc, char *argv[]){
 		uint64_t bigranks = ranks;
 
 	/* Open file */
-		if(rank == 0) ofs.open(argv[2], std::ofstream::out);
+		FILE *output;
+		if(rank == 0) output = fopen(argv[2], "w");
 		MPI_File f;
 		res = MPI_File_open(MPI_COMM_WORLD, argv[1], MPI_MODE_RDONLY, MPI_INFO_NULL, &f);
 
@@ -232,20 +231,20 @@ int main(int argc, char *argv[]){
 					vector<pair<string,int>> wordsToSort;
 					for(auto &p : final_bucket) wordsToSort.emplace_back(p.first,p.second);
 					sort(wordsToSort.begin(),wordsToSort.end(),[](pair<string,int> &e1, pair<string,int> &e2){return e1.second;});
-					for(auto &p : wordsToSort) ofs << "(" << p.first << "," << p.second << ")" << endl;
+					for(auto &p : wordsToSort) fprintf(output, "(%s, %ld)\n", p.first.c_str(), p.second);
 				#else
-					for(auto &p : final_bucket) ofs << "(" << p.first << "," << p.second << ") in 0 (final count[down])" << endl;
+					for(auto &p : final_bucket) fprintf(output, "(%s, %ld)\n", p.first.c_str(), p.second);
 				#endif
 			#endif
-			ofs << "Time excluding printing = " << (end_time-start_time) << endl;
+			fprintf(output, "Time excluding printing = %f\n", (end_time-start_time));
 			
 			#ifndef DEBUG 
-				ofs << "Time including printing = " << (MPI_Wtime()-start_time) << endl;			     
+				fprintf(output, "Time including printing = %f\n", (MPI_Wtime()-start_time));
 			#endif
 		}
 
 	/* Free memory and finalize */
 		MPI_File_close(&f);
-		if(rank == 0) ofs.close();
+		if(rank == 0) fclose(output);
 		MPI_Finalize();
 }
