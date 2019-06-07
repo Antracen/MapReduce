@@ -16,7 +16,7 @@ procs=$file_size
 if=/cfs/klemming/scratch/s/sergiorg/DD2356/input/wikipedia_${file_size}GB.txt
 of=/cfs/nobackup/m/mawass/MapReduce/Results/size_${file_size}GB_procs_${procs}.txt
 
-echo "" > $if
+echo "" > $of
 
 export OMP_NUM_THREADS=32
 aprun -q -n $procs /cfs/nobackup/m/mawass/MapReduce/bin/wordcount.out $if $of
