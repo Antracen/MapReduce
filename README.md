@@ -1,19 +1,20 @@
 # MapReduce
 
-https://www.cs.rutgers.edu/~pxk/417/notes/content/18-mapreduce-slides.pdf
+## Running
 
-https://www.talend.com/resources/what-is-mapreduce/
+The makefile provided in our repository is used both to compile the code and to change the chunk size and maximum word length.
 
-https://www.coursera.org/lecture/hadoop/a-mapreduce-example-wordcount-in-detail-lgbWa
+To compile on Beskow run `make beskow` in the repository root. This will compile all files to the `bin` directory. The program executable is called `wordcount.out`. The program expects two arguments, the first being input file and the second output file. See example usage below. 
 
-https://www.youtube.com/watch?v=cvhKoniK5Uo
 
-https://openmp.org/wp-content/uploads/HybridPP_Slides.pdf
+`aprun -n 160 ./bin/wordcount.out input.txt output.txt`
 
-https://www.archer.ac.uk/training/course-material/2017/09/advmpi-camb/MPIandOpenMP.pdf
+To run the program locally you compile by running `make local` and then running the executable as explained below.
 
-# Questions
+`mpirun -n 160 ./bin/wordcount.out input.txt output.txt`
 
-How should the data be stored, read and distributed across the nodes? Datastructures, reading procedure, sorting (?), output.
+In addition to regular compiling locally and on Beskow, the makefile has commands for compiling a debug-version of the program as well as a profiling version for the ARM Map program.
 
-When we create KV-pairs, how do we store them and how do we send them to the new owner? When (if?) do we sort KV-pairs?
+## Result format
+
+Our output files begin by listing all words and the number of times they occurr in the text in ascending alphabetical order. At the end of the output file the execution time including and excluding printing is presented.
